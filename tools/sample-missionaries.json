@@ -1,0 +1,17 @@
+{
+  "_meta": "Sample roster used until the StakeOS + Google Sheets sync is wired up. Phase 1 stub data.",
+  "missionaries": [
+    { "name": "Elder Anderson",   "mission": "Brazil São Paulo South Mission",     "permission": true,  "bio": "Loves longboarding and his mom's enchiladas. Speaks Portuguese now.", "photoCount": 2 },
+    { "name": "Sister Bennett",   "mission": "Japan Tokyo Mission",                "permission": true,  "bio": "Eagle-eyed cellist. Says ramen runs in her veins these days.", "photoCount": 3 },
+    { "name": "Elder Cardoso",    "mission": "England London Mission",             "permission": true,  "bio": "Tube-line memorizer. Misses his brother's birthday this year.", "photoCount": 1 },
+    { "name": "Sister Davies",    "mission": "Mexico Mexico City Mission",         "permission": true,  "bio": "Volleyball setter and street-tacos critic.", "photoCount": 2 },
+    { "name": "Elder Eriksen",    "mission": "Philippines Manila Mission",         "permission": true,  "bio": "Builds drones. Currently building friendships.", "photoCount": 1 },
+    { "name": "Sister Fonseca",   "mission": "Argentina Buenos Aires Mission",     "permission": true,  "bio": "Will fight you about Messi. Politely.", "photoCount": 2 },
+    { "name": "Elder Goldberg",   "mission": "Ghana Accra Mission",                "permission": true,  "bio": "Brings a guitar everywhere. Plays mostly in F.", "photoCount": 1 },
+    { "name": "Sister Huang",     "mission": "Taiwan Taipei Mission",              "permission": true,  "bio": "Eats night-market food faster than she translates.", "photoCount": 2 },
+    { "name": "Elder Ito",        "mission": "California Los Angeles Mission",     "permission": false, "bio": null, "photoCount": 0 },
+    { "name": "Sister Jensen",    "mission": "Germany Frankfurt Mission",          "permission": true,  "bio": "Engineer brain, gentle heart, brutal at chess.", "photoCount": 2 },
+    { "name": "Elder Kalei",      "mission": "Australia Sydney Mission",           "permission": true,  "bio": "Surfs everywhere there's a coast. Calls everyone 'cuz'.", "photoCount": 1 },
+    { "name": "Sister Lima",      "mission": "Peru Lima Mission",                  "permission": true,  "bio": "Was Stake Choir lead. Now she sings on doorsteps.", "photoCount": 2 }
+  ]
+}

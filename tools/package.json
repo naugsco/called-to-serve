@@ -1,0 +1,10 @@
+{
+  "name": "@called-to-serve/tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "sync.mjs",
+  "dependencies": {
+    "googleapis": "^144.0.0"
+  }
+}

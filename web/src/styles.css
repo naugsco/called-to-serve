@@ -1,0 +1,427 @@
+:root {
+  --bg: #F2EFE8;
+  --bg-rgb: 242, 239, 232;
+  --ink: #1a1a1a;
+  --ink-rgb: 26, 26, 26;
+  --ink-faint: rgba(26,26,26,0.55);
+  --ink-ghost: rgba(26,26,26,0.18);
+  --accent: #2c5f5d;
+  --accent-rgb: 44, 95, 93;
+  --gold: #e8c468;
+  --gold-rgb: 232, 196, 104;
+  --silhouette-bg: linear-gradient(135deg, #3a506b 0%, #1d3557 100%);
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+body.dark {
+  --bg: #08090d;
+  --bg-rgb: 8, 9, 13;
+  --ink: #e8e6df;
+  --ink-rgb: 232, 230, 223;
+  --ink-faint: rgba(232,230,223,0.55);
+  --ink-ghost: rgba(232,230,223,0.18);
+  --accent: #5bc0be;
+  --accent-rgb: 91, 192, 190;
+  --gold: #f1c668;
+  --gold-rgb: 241, 198, 104;
+  --silhouette-bg: linear-gradient(135deg, #2a3550 0%, #0e1730 100%);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--bg); color: var(--ink);
+  overflow: hidden;
+  transition: background-color 0.45s ease, color 0.45s ease;
+}
+body { font-family: var(--font-sans); }
+
+#app, #globe-root, #hex-root, #closeup-card {
+  position: fixed; pointer-events: none;
+}
+#app, #globe-root, #closeup-card { inset: 0; }
+#globe-root { z-index: 1; }
+#hex-root { z-index: 2; }
+#closeup-card { z-index: 4; }
+
+#globe-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+/* ---------- Top / bottom HUD bars ---------- */
+.topbar, .botbar {
+  position: fixed; left: 0; right: 0;
+  height: clamp(40px, 3vw, 70px);
+  display: flex; align-items: center;
+  padding: 0 clamp(1rem, 2vw, 3rem);
+  font-family: var(--font-mono);
+  font-size: clamp(0.7rem, 0.65vw, 1.05rem);
+  letter-spacing: 0.32em;
+  color: var(--ink); z-index: 10;
+  background: linear-gradient(to bottom, rgba(var(--bg-rgb),0.85), rgba(var(--bg-rgb),0));
+}
+.botbar {
+  top: auto; bottom: 0;
+  background: linear-gradient(to top, rgba(var(--bg-rgb),0.85), rgba(var(--bg-rgb),0));
+  justify-content: flex-end;
+}
+.topbar { top: 0; }
+.topbar::before {
+  content: ''; flex: 0 0 8px; height: 8px;
+  background: var(--accent); margin-right: 1rem;
+  box-shadow: 0 0 12px rgba(var(--accent-rgb),0.6);
+}
+.topbar .brand { font-weight: 600; }
+.topbar .org, .botbar .status { opacity: 0.6; }
+.topbar .sep, .botbar .sep { margin: 0 1rem; opacity: 0.4; }
+
+#theme-toggle {
+  pointer-events: auto;
+  margin-left: auto;
+  appearance: none; border: 1px solid var(--ink-ghost);
+  background: transparent; color: var(--ink);
+  font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.24em;
+  padding: 0.35rem 0.8rem; cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+#theme-toggle:hover { border-color: var(--accent); background: rgba(var(--accent-rgb),0.08); }
+
+.botbar::after {
+  content: ''; flex: 0 0 8px; height: 8px;
+  background: var(--accent); margin-left: 1rem; border-radius: 50%;
+  animation: blink 1.5s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0.25; } }
+
+/* ---------- Hex field ---------- */
+#hex-root {
+  /* Push hex further right; give breathing room between globe and field. */
+  position: fixed; top: 0; bottom: 0; left: 54%; right: 0;
+  overflow: hidden;
+  opacity: 0; transition: opacity 0.5s ease;
+  /* Radial vignette — field fades out to the void on all sides. */
+  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 50% 50%,
+    #000 35%, rgba(0,0,0,0.65) 70%, transparent 100%);
+          mask-image: radial-gradient(ellipse 70% 80% at 50% 50%,
+    #000 35%, rgba(0,0,0,0.65) 70%, transparent 100%);
+}
+#hex-root.visible { opacity: 1; }
+
+.hex-field {
+  position: absolute;
+  /* Anchor at 50% horizontally inside the hex-root, 50% vertically.
+     Tiles are positioned relative to this point; GSAP translates the field. */
+  left: 50%; top: 50%;
+  will-change: transform;
+}
+
+/* Energy lines in the SPACES between hexes. Drawn under all tiles so only
+   the slivers in the gaps are visible. Each line pulses outward from the
+   active cell, gold near it, cyan farther out. */
+.hex-connectors .connector {
+  fill: none;
+  stroke: color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent));
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  /* A short bright dash + a long gap, so one moving pulse per line. */
+  stroke-dasharray: 7 600;
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
+  opacity: 0.95;
+  animation: connector-pulse 3.2s linear infinite;
+  animation-delay: var(--wave-delay, 0s);
+}
+@keyframes connector-pulse {
+  from { stroke-dashoffset: 600; }
+  to   { stroke-dashoffset: -50; }
+}
+
+/* Radial energy burst emitted by the active cell. Lives in fieldEl coords
+   so it inherits the field translate just like the tiles do. */
+.energy-burst {
+  position: absolute;
+  width: 80px; height: 80px;
+  margin: 0;
+  border-radius: 50%;
+  border: 2px solid var(--gold);
+  transform: translate(-50%, -50%) scale(0.5);
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 0 10px rgba(var(--gold-rgb), 0.55));
+  z-index: 4;
+}
+.energy-burst.on {
+  animation: burst-out 3.2s ease-out infinite;
+}
+@keyframes burst-out {
+  0%   { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  8%   { transform: translate(-50%, -50%) scale(0.7); opacity: 0.95; border-width: 3px; }
+  100% { transform: translate(-50%, -50%) scale(7); opacity: 0; border-width: 1px; }
+}
+
+.hex-tile {
+  position: absolute;
+  --colorize: 0;
+  --dist-opacity: 1;
+  transform-origin: center center;
+}
+
+/* Empty surround tiles: just an outline, faded by distance from center. */
+.hex-tile.empty {
+  opacity: 0;
+  transition: opacity 0.55s ease var(--stagger, 0ms);
+}
+#hex-root.show-frames .hex-tile.empty {
+  opacity: var(--dist-opacity, 0.16);
+  transition: opacity 0.6s ease;
+}
+
+/* Filled (missionary) tiles. Initial state for the materialize-in transition. */
+.hex-tile.filled {
+  opacity: 0;
+  transform: translateY(10px) scale(0.93);
+  transition:
+    opacity 0.55s ease var(--stagger, 0ms),
+    transform 0.55s cubic-bezier(.2,.8,.2,1) var(--stagger, 0ms);
+}
+#hex-root.show-frames .hex-tile.filled {
+  opacity: var(--dist-opacity, 1);
+  transform: scale(1);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.2,.8,.2,1);
+}
+/* Active (center, settled) — slight magnification + highlighted edges. */
+#hex-root.show-frames .hex-tile.filled.active {
+  transform: scale(1.08);
+}
+/* Arriving (mid-translate, before the highlight comes back on). Bigger scale,
+   slower transition matches the field-translate duration. */
+#hex-root.show-frames .hex-tile.filled.arriving {
+  transform: scale(1.18);
+  transition: opacity 0.6s ease, transform 1.2s cubic-bezier(.2,.8,.2,1);
+  z-index: 4;
+}
+
+/* Photo layer */
+.hex-photo {
+  position: absolute; inset: 8%;
+  background: rgba(var(--ink-rgb), 0.08);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity 0.7s ease var(--stagger, 0ms);
+}
+#hex-root.show-photos .hex-photo { opacity: 1; }
+.hex-photo img {
+  width: 100%; height: 100%; object-fit: cover;
+  filter: grayscale(1) brightness(0.9) sepia(0.35) hue-rotate(135deg) saturate(2.2);
+  transition: filter 0.9s ease, opacity 0.25s ease;
+}
+.hex-tile.colorize .hex-photo img { filter: none; }
+
+.hex-photo.silhouette { background: var(--silhouette-bg); }
+.hex-photo.silhouette svg {
+  width: 55%; height: 55%; opacity: 0.7;
+  fill: rgba(255,255,255,0.78);
+}
+
+/* ----- Hex frame SVG layers (glass + energy + base + active) ----- */
+.hex-frame {
+  position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+  overflow: visible; /* let drop-shadow + dash glow extend past the bbox */
+  /* Outward energy wave: brief brightness flash whose delay grows with
+     distance from the active cell, so the wave appears to radiate. */
+  animation: wave-flash 3.2s linear infinite;
+  animation-delay: var(--wave-delay, 0s);
+}
+@keyframes wave-flash {
+  0%, 14%, 30%, 100% { filter: none; }
+  20% { filter: brightness(1.7) drop-shadow(0 0 8px rgba(var(--gold-rgb), 0.55)); }
+}
+/* Active cell suppresses its own wave-flash (it's the source). */
+.hex-tile.filled.active .hex-frame { animation: none; }
+
+/* Glass pane fill — translucent gradient lit from above. */
+.hex-frame .glass-fill {
+  fill: url(#hex-glass);
+  stroke: none;
+}
+.hex-tile.empty .hex-frame .glass-fill { fill: url(#hex-glass-empty); }
+
+/* Thin clean base stroke. */
+.hex-frame .frame-base {
+  fill: none;
+  stroke: rgba(var(--accent-rgb), 0.85);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 1px rgba(var(--accent-rgb), 0.45));
+}
+.hex-tile.empty .hex-frame .frame-base {
+  stroke: rgba(var(--accent-rgb), 0.42);
+  stroke-width: 0.9;
+  filter: none;
+}
+
+/* Per-hex perimeter pulses are OFF by default — only the active cell shows
+   one, so the field reads as still hexes with energy flowing in the spaces
+   BETWEEN them (see .hex-connectors below). */
+.hex-frame .frame-energy {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 6 340.4;
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 3px rgba(var(--gold-rgb), 0.7));
+  opacity: 0;
+}
+@keyframes hex-energy {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -346.41; }
+}
+
+/* Hidden by default; gold glow appears on active. */
+.hex-frame .frame-glow {
+  fill: none;
+  stroke: rgba(var(--gold-rgb), 0.5);
+  stroke-width: 6;
+  filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+/* Active bright gold border drawn on top of the base stroke. */
+.hex-frame .frame-active {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.8;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+/* Active (center, settled) — edges stay highlighted with a steady pulse.
+   .arriving suppresses these so the cell is plain while moving in. */
+.hex-tile.filled.active:not(.arriving) {
+  z-index: 3;
+}
+.hex-tile.filled.active:not(.arriving) .hex-frame .glass-fill {
+  fill: url(#hex-glass-active);
+}
+.hex-tile.filled.active:not(.arriving) .hex-frame .frame-active {
+  opacity: 1;
+  animation: edge-pulse 1.9s ease-in-out infinite;
+}
+.hex-tile.filled.active:not(.arriving) .hex-frame .frame-glow {
+  opacity: 1;
+}
+/* Only the active hex shows its own perimeter pulse. */
+.hex-tile.filled.active:not(.arriving) .hex-frame .frame-energy {
+  stroke: var(--gold);
+  stroke-width: 2.2;
+  stroke-dasharray: 10 336.4;
+  opacity: 1;
+  animation: hex-energy 3s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(var(--gold-rgb), 0.8))
+          drop-shadow(0 0 9px rgba(var(--gold-rgb), 0.45));
+}
+
+@keyframes edge-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(var(--gold-rgb), 0.25)); }
+  50%      { filter: drop-shadow(0 0 12px rgba(var(--gold-rgb), 0.6));  }
+}
+
+/* Edge labels — SVG text drawn along paths just outside the hex border.
+   Top two edges carry name (title / surname); bottom two carry the mission
+   split country / city. Font size is in viewBox units. */
+.hex-frame .edge-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  fill: rgba(var(--ink-rgb), 0.85);
+  opacity: 0;
+  transition: opacity 0.5s ease, fill 0.4s ease;
+  paint-order: stroke fill;
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 0.55px;
+  stroke-linejoin: round;
+}
+#hex-root.show-names .hex-tile.filled .hex-frame .edge-label { opacity: 0.88; }
+.hex-tile.filled.active:not(.arriving) .hex-frame .edge-label {
+  fill: var(--gold);
+  opacity: 1;
+  font-size: 11px;
+}
+.hex-frame .edge-label.edge-bot-left,
+.hex-frame .edge-label.edge-bot-right {
+  font-size: 8.5px;
+  letter-spacing: 0.4px;
+  fill: rgba(var(--accent-rgb), 0.95);
+  /* Hang text DOWN from the path so it sits entirely below the hex edge
+     instead of straddling it. */
+  dominant-baseline: hanging;
+}
+.hex-tile.filled.active:not(.arriving) .hex-frame .edge-label.edge-bot-left,
+.hex-tile.filled.active:not(.arriving) .hex-frame .edge-label.edge-bot-right {
+  fill: var(--accent);
+  font-size: 9.5px;
+}
+
+/* ---------- Closeup card ---------- */
+#closeup-card {
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.5s ease;
+}
+#closeup-card.visible { opacity: 1; }
+.card-frame {
+  display: grid;
+  grid-template-columns: clamp(220px, 17vw, 380px) 1fr;
+  gap: clamp(1rem, 1.3vw, 2.5rem);
+  width: min(56vw, 920px);
+  background: rgba(var(--bg-rgb), 0.92);
+  border: 1.5px solid var(--ink);
+  padding: clamp(1rem, 1.2vw, 2rem);
+  box-shadow: 0 0 0 1px rgba(var(--ink-rgb),0.05),
+              0 16px 56px rgba(0,0,0,0.18);
+  backdrop-filter: blur(10px);
+  position: absolute;
+  bottom: clamp(8vh, 12vh, 18vh); right: clamp(4vw, 6vw, 9vw);
+}
+.card-frame img {
+  width: 100%; aspect-ratio: 1 / 1; object-fit: cover;
+  border: 1px solid var(--ink);
+}
+.card-frame .silhouette {
+  width: 100%; aspect-ratio: 1/1; border: 1px solid var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-faint); font-size: clamp(2.5rem, 3vw, 4.5rem);
+}
+.card-body .kicker {
+  font-family: var(--font-mono);
+  font-size: clamp(0.65rem, 0.6vw, 0.9rem); letter-spacing: 0.32em;
+  color: var(--accent);
+}
+.card-body h2 {
+  margin: 0.3rem 0;
+  font-size: clamp(1.4rem, 1.5vw, 2.4rem);
+  font-weight: 700;
+}
+.card-body .mission {
+  font-family: var(--font-mono);
+  font-size: clamp(0.78rem, 0.7vw, 1.1rem);
+  border-top: 1px solid var(--ink-ghost);
+  padding-top: 0.6rem; margin-top: 0.4rem;
+}
+.card-body .bio {
+  font-size: clamp(0.9rem, 0.85vw, 1.25rem); line-height: 1.5;
+  margin: 1rem 0;
+}
+.card-body .fact, .card-body .weather {
+  font-family: var(--font-mono);
+  font-size: clamp(0.7rem, 0.65vw, 0.95rem);
+  display: flex; gap: 0.7rem;
+  margin-top: 0.4rem;
+  border-top: 1px dashed var(--ink-ghost);
+  padding-top: 0.4rem;
+}
+.card-body .fact span, .card-body .weather span {
+  color: var(--accent); letter-spacing: 0.2em; flex: 0 0 auto;
+}

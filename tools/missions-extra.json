@@ -1,0 +1,7 @@
+{
+  "_meta": {
+    "purpose": "Mission HQ coordinates not covered by missions-seed.json. Add entries here when sync reports an unmatched mission name.",
+    "schema": "Same as missions-seed.json mission entries: { name, slug, hq, country, lat, lng }"
+  },
+  "missions": []
+}

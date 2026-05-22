@@ -1,0 +1,221 @@
+{
+  "generatedAt": "2026-05-22T06:57:07.948Z",
+  "source": "sample (Phase 1 stub)",
+  "origin": {
+    "lat": 49.2827,
+    "lng": -123.1207,
+    "label": "Vancouver, BC"
+  },
+  "missionaries": [
+    {
+      "slug": "elder-anderson",
+      "name": "Elder Anderson",
+      "mission": "Brazil São Paulo South Mission",
+      "missionSlug": "brazil-sao-paulo-south-mission",
+      "missionLat": -23.5505,
+      "missionLng": -46.6333,
+      "missionCountry": "Brazil",
+      "missionCity": "São Paulo",
+      "permission": true,
+      "bio": "Loves longboarding and his mom's enchiladas. Speaks Portuguese now.",
+      "fact": "Headquartered in the largest city in the Southern Hemisphere.",
+      "photos": [
+        "/images/elder-anderson/1.svg",
+        "/images/elder-anderson/2.svg"
+      ],
+      "bestPhoto": "/images/elder-anderson/1.svg"
+    },
+    {
+      "slug": "sister-bennett",
+      "name": "Sister Bennett",
+      "mission": "Japan Tokyo Mission",
+      "missionSlug": "japan-tokyo-mission",
+      "missionLat": 35.6762,
+      "missionLng": 139.6503,
+      "missionCountry": "Japan",
+      "missionCity": "Tokyo",
+      "permission": true,
+      "bio": "Eagle-eyed cellist. Says ramen runs in her veins these days.",
+      "fact": "Covers the largest metropolitan area on Earth — 37 million people.",
+      "photos": [
+        "/images/sister-bennett/1.svg",
+        "/images/sister-bennett/2.svg",
+        "/images/sister-bennett/3.svg"
+      ],
+      "bestPhoto": "/images/sister-bennett/1.svg"
+    },
+    {
+      "slug": "elder-cardoso",
+      "name": "Elder Cardoso",
+      "mission": "England London Mission",
+      "missionSlug": "england-london-mission",
+      "missionLat": 51.5074,
+      "missionLng": -0.1278,
+      "missionCountry": "United Kingdom",
+      "missionCity": "London",
+      "permission": true,
+      "bio": "Tube-line memorizer. Misses his brother's birthday this year.",
+      "fact": "Includes streets the Apostle Paul never walked but Brigham Young did.",
+      "photos": [
+        "/images/elder-cardoso/1.svg"
+      ],
+      "bestPhoto": "/images/elder-cardoso/1.svg"
+    },
+    {
+      "slug": "sister-davies",
+      "name": "Sister Davies",
+      "mission": "Mexico Mexico City Mission",
+      "missionSlug": "mexico-mexico-city-mission",
+      "missionLat": 19.4326,
+      "missionLng": -99.1332,
+      "missionCountry": "Mexico",
+      "missionCity": "Mexico City",
+      "permission": true,
+      "bio": "Volleyball setter and street-tacos critic.",
+      "fact": "Operates at over 7,300 ft elevation — bring lungs.",
+      "photos": [
+        "/images/sister-davies/1.svg",
+        "/images/sister-davies/2.svg"
+      ],
+      "bestPhoto": "/images/sister-davies/1.svg"
+    },
+    {
+      "slug": "elder-eriksen",
+      "name": "Elder Eriksen",
+      "mission": "Philippines Manila Mission",
+      "missionSlug": "philippines-manila-mission",
+      "missionLat": 14.5995,
+      "missionLng": 120.9842,
+      "missionCountry": "Philippines",
+      "missionCity": "Manila",
+      "permission": true,
+      "bio": "Builds drones. Currently building friendships.",
+      "fact": "More than 100 islands fall under its watch.",
+      "photos": [
+        "/images/elder-eriksen/1.svg"
+      ],
+      "bestPhoto": "/images/elder-eriksen/1.svg"
+    },
+    {
+      "slug": "sister-fonseca",
+      "name": "Sister Fonseca",
+      "mission": "Argentina Buenos Aires Mission",
+      "missionSlug": "argentina-buenos-aires-mission",
+      "missionLat": -34.6037,
+      "missionLng": -58.3816,
+      "missionCountry": "Argentina",
+      "missionCity": "Buenos Aires",
+      "permission": true,
+      "bio": "Will fight you about Messi. Politely.",
+      "fact": "Where tango was born and yerba mate is currency.",
+      "photos": [
+        "/images/sister-fonseca/1.svg",
+        "/images/sister-fonseca/2.svg"
+      ],
+      "bestPhoto": "/images/sister-fonseca/1.svg"
+    },
+    {
+      "slug": "elder-goldberg",
+      "name": "Elder Goldberg",
+      "mission": "Ghana Accra Mission",
+      "missionSlug": "ghana-accra-mission",
+      "missionLat": 5.6037,
+      "missionLng": -0.187,
+      "missionCountry": "Ghana",
+      "missionCity": "Accra",
+      "permission": true,
+      "bio": "Brings a guitar everywhere. Plays mostly in F.",
+      "fact": "On the Greenwich meridian — true zero longitude.",
+      "photos": [
+        "/images/elder-goldberg/1.svg"
+      ],
+      "bestPhoto": "/images/elder-goldberg/1.svg"
+    },
+    {
+      "slug": "sister-huang",
+      "name": "Sister Huang",
+      "mission": "Taiwan Taipei Mission",
+      "missionSlug": "taiwan-taipei-mission",
+      "missionLat": 25.033,
+      "missionLng": 121.5654,
+      "missionCountry": "Taiwan",
+      "missionCity": "Taipei",
+      "permission": true,
+      "bio": "Eats night-market food faster than she translates.",
+      "fact": "Includes Taipei 101 — once the tallest building in the world.",
+      "photos": [
+        "/images/sister-huang/1.svg",
+        "/images/sister-huang/2.svg"
+      ],
+      "bestPhoto": "/images/sister-huang/1.svg"
+    },
+    {
+      "slug": "elder-ito",
+      "name": "Elder Ito",
+      "mission": "California Los Angeles Mission",
+      "missionSlug": "california-los-angeles-mission",
+      "missionLat": 34.0522,
+      "missionLng": -118.2437,
+      "missionCountry": "United States",
+      "missionCity": "Los Angeles",
+      "permission": false,
+      "bio": null,
+      "fact": "Stretches from beaches to deserts to the Sierras.",
+      "photos": [],
+      "bestPhoto": null
+    },
+    {
+      "slug": "sister-jensen",
+      "name": "Sister Jensen",
+      "mission": "Germany Frankfurt Mission",
+      "missionSlug": "germany-frankfurt-mission",
+      "missionLat": 50.1109,
+      "missionLng": 8.6821,
+      "missionCountry": "Germany",
+      "missionCity": "Frankfurt",
+      "permission": true,
+      "bio": "Engineer brain, gentle heart, brutal at chess.",
+      "fact": "Sits on the Main River; home of Europe's largest book fair.",
+      "photos": [
+        "/images/sister-jensen/1.svg",
+        "/images/sister-jensen/2.svg"
+      ],
+      "bestPhoto": "/images/sister-jensen/1.svg"
+    },
+    {
+      "slug": "elder-kalei",
+      "name": "Elder Kalei",
+      "mission": "Australia Sydney Mission",
+      "missionSlug": "australia-sydney-mission",
+      "missionLat": -33.8688,
+      "missionLng": 151.2093,
+      "missionCountry": "Australia",
+      "missionCity": "Sydney",
+      "permission": true,
+      "bio": "Surfs everywhere there's a coast. Calls everyone 'cuz'.",
+      "fact": "The harbor bridge they cross daily turned 95 in 2025.",
+      "photos": [
+        "/images/elder-kalei/1.svg"
+      ],
+      "bestPhoto": "/images/elder-kalei/1.svg"
+    },
+    {
+      "slug": "sister-lima",
+      "name": "Sister Lima",
+      "mission": "Peru Lima Mission",
+      "missionSlug": "peru-lima-mission",
+      "missionLat": -12.0464,
+      "missionLng": -77.0428,
+      "missionCountry": "Peru",
+      "missionCity": "Lima",
+      "permission": true,
+      "bio": "Was Stake Choir lead. Now she sings on doorsteps.",
+      "fact": "On the edge of the world's driest desert.",
+      "photos": [
+        "/images/sister-lima/1.svg",
+        "/images/sister-lima/2.svg"
+      ],
+      "bestPhoto": "/images/sister-lima/1.svg"
+    }
+  ]
+}

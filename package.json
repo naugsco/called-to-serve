@@ -1,0 +1,17 @@
+{
+  "name": "called-to-serve",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "tools",
+    "web"
+  ],
+  "scripts": {
+    "sync": "node tools/sync.mjs",
+    "sync:dry": "node tools/sync.mjs --dry-run",
+    "dev": "npm run dev --workspace web",
+    "build": "npm run build --workspace web",
+    "preview": "npm run preview --workspace web"
+  }
+}

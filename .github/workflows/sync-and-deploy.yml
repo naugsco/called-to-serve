@@ -1,0 +1,57 @@
+name: sync-and-deploy
+
+on:
+  # Refresh every 3 hours so new parent submissions trickle in.
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Cancel any in-flight run when a new one starts.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Sync roster + photos
+        run: node tools/sync.mjs
+        env:
+          # Set these in repo Settings → Secrets and variables → Actions.
+          # Without them, sync falls back to sample data.
+          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+          SUBMISSIONS_SHEET_ID: ${{ secrets.SUBMISSIONS_SHEET_ID }}
+          ROSTER_SHEET_ID: ${{ secrets.ROSTER_SHEET_ID }}
+
+      - name: Build web
+        run: npm run build
+        env:
+          # Subpath for project Pages (naugsco.github.io/called-to-serve/).
+          BASE_URL: /${{ github.event.repository.name }}/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
