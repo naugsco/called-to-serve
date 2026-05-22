@@ -49,6 +49,10 @@ jobs:
           BASE_URL: /${{ github.event.repository.name }}/
 
       - uses: actions/configure-pages@v5
+        with:
+          # Auto-enable Pages on first run so we don't need a manual
+          # repo Settings → Pages toggle.
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist
