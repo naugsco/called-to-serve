@@ -111,7 +111,7 @@ if (unmatched.length) {
 
 const manifest = {
   generatedAt: new Date().toISOString(),
-  source: 'sample (Phase 1 stub)',
+  source: USE_REAL ? 'live (sheets + drive)' : 'sample (no GOOGLE_SA_JSON)',
   origin: { lat: 49.2827, lng: -123.1207, label: 'Vancouver, BC' },
   missionaries,
 };
