@@ -40,8 +40,12 @@ const SPREAD = 2;
 let containerEl;
 let fieldEl;
 let burstEl = null;
-let connectorsSvg = null;
-let connectors = [];     // [{ line, t1, t2 }]
+// Energy graph: vertices and edges of the (ideal) hex lattice. Lines along
+// these edges are the "spaces between hexagons" the energy travels through.
+let energySvg = null;
+let energyVertices = new Map();  // vkey -> { x, y, key, edgeKeys[], sumX, sumY, count }
+let energyEdges = new Map();     // edgeKey -> { v1Key, v2Key, line }
+let tileCornerKeys = new Map();  // tile -> [6 vertex keys]
 let tiles = [];
 let missionaryTiles = [];
 let R = 80, pitchX, pitchY;
@@ -124,7 +128,7 @@ export function buildField(missionaries) {
     tiles.push(createEmptyTile(cell.q, cell.r));
   }
 
-  // Stagger materialize right→left, plus per-tile random pulse delay/duration.
+  // Stagger materialize right→left so the field "fills in" from the rightmost cells.
   let maxX = -Infinity, minX = Infinity;
   for (const t of tiles) {
     positionTile(t);
@@ -136,103 +140,175 @@ export function buildField(missionaries) {
     const norm = (maxX - t.x) / span;
     const stagger = norm * 700 + Math.abs(t.y) * 0.1;
     t.root.style.setProperty('--stagger', `${Math.max(0, stagger).toFixed(0)}ms`);
-    // Energy pulse: per-tile randomised duration + offset so they don't sync.
-    const dur = 5 + Math.random() * 6;       // 5..11 s
-    const delay = -Math.random() * dur;      // negative → mid-cycle start
-    t.root.style.setProperty('--energy-duration', `${dur.toFixed(2)}s`);
-    t.root.style.setProperty('--energy-delay', `${delay.toFixed(2)}s`);
     fieldEl.appendChild(t.root);
   }
 
-  buildConnectors();
+  buildEnergyGraph();
 
   if (missionaryTiles[0]) {
     snapFieldTo(missionaryTiles[0]);
     setActive(missionaryTiles[0]);
     applyDistanceFade(missionaryTiles[0]);
+    updateEnergyFlow(missionaryTiles[0]);
     positionBurst(missionaryTiles[0]);
   }
 
   window.addEventListener('resize', onResize);
 }
 
-// Energy lines run between adjacent hex centres. Drawn UNDER all tiles, so
-// only the slivers in the gaps between hexes are visible — exactly the
-// "space between the hexagons" the user wants energy on.
-function buildConnectors() {
-  if (connectorsSvg) connectorsSvg.remove();
-  connectorsSvg = document.createElementNS(svgNS, 'svg');
-  connectorsSvg.setAttribute('class', 'hex-connectors');
-  connectorsSvg.style.position = 'absolute';
-  connectorsSvg.style.left = '0';
-  connectorsSvg.style.top = '0';
-  connectorsSvg.style.width = '1px';
-  connectorsSvg.style.height = '1px';
-  connectorsSvg.style.overflow = 'visible';
-  connectorsSvg.style.pointerEvents = 'none';
+// Build a graph of vertices (hex corners, deduped) + edges (hex sides) for
+// the whole field. Adjacent rendered hexes' facing corners are within ~0.12·R
+// of each other; we group them by a coarse grid so they collapse to one node
+// and the resulting edges visually run along the spaces between hexes.
+function buildEnergyGraph() {
+  if (energySvg) energySvg.remove();
+  energySvg = document.createElementNS(svgNS, 'svg');
+  energySvg.setAttribute('class', 'hex-energy');
+  energySvg.style.position = 'absolute';
+  energySvg.style.left = '0';
+  energySvg.style.top = '0';
+  energySvg.style.width = '1px';
+  energySvg.style.height = '1px';
+  energySvg.style.overflow = 'visible';
+  energySvg.style.pointerEvents = 'none';
 
-  connectors = [];
-  const tileMap = new Map(tiles.map(t => [`${t.q},${t.r}`, t]));
-  // Only three of six directions, avoiding duplicates: right, lower-right, lower-left.
-  const halfDirs = [[1, 0], [0, 1], [-1, 1]];
-  for (const t of tiles) {
-    for (const [dq, dr] of halfDirs) {
-      const n = tileMap.get(`${t.q + dq},${t.r + dr}`);
-      if (!n) continue;
-      const line = document.createElementNS(svgNS, 'line');
-      line.setAttribute('x1', t.x.toFixed(2));
-      line.setAttribute('y1', t.y.toFixed(2));
-      line.setAttribute('x2', n.x.toFixed(2));
-      line.setAttribute('y2', n.y.toFixed(2));
-      line.setAttribute('class', 'connector');
-      connectorsSvg.appendChild(line);
-      connectors.push({ line, t1: t, t2: n });
+  energyVertices = new Map();
+  energyEdges = new Map();
+  tileCornerKeys = new Map();
+
+  // Dedupe vertices by IDEAL (no-gap) grid position so corners shared by 3
+  // tiles collapse to one node exactly. Render position is the centroid of
+  // the contributing RENDERED corners — that lands in the visible gap.
+  const idealPitchX = SQ3 * R;
+  const idealPitchY = 1.5 * R;
+  const grain = Math.max(R * 0.02, 0.5);
+  const vkey = (x, y) => `${Math.round(x / grain)}|${Math.round(y / grain)}`;
+
+  for (const tile of tiles) {
+    const idealCx = (tile.q + tile.r / 2) * idealPitchX;
+    const idealCy = tile.r * idealPitchY;
+    const keys = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i - Math.PI / 2; // top, top-right, bottom-right, bottom, bottom-left, top-left
+      const ix = idealCx + R * Math.cos(angle);
+      const iy = idealCy + R * Math.sin(angle);
+      const rx = tile.x   + R * Math.cos(angle);
+      const ry = tile.y   + R * Math.sin(angle);
+      const key = vkey(ix, iy);
+      let v = energyVertices.get(key);
+      if (!v) {
+        v = { x: rx, y: ry, key, edgeKeys: [], sumX: rx, sumY: ry, count: 1 };
+        energyVertices.set(key, v);
+      } else {
+        v.sumX += rx; v.sumY += ry; v.count++;
+        v.x = v.sumX / v.count;
+        v.y = v.sumY / v.count;
+      }
+      keys.push(key);
+    }
+    tileCornerKeys.set(tile, keys);
+
+    for (let i = 0; i < 6; i++) {
+      const k1 = keys[i];
+      const k2 = keys[(i + 1) % 6];
+      const ek = [k1, k2].sort().join('--');
+      if (!energyEdges.has(ek)) {
+        const line = document.createElementNS(svgNS, 'line');
+        line.setAttribute('class', 'energy-line');
+        line.style.opacity = '0';
+        energySvg.appendChild(line);
+        energyEdges.set(ek, { v1Key: k1, v2Key: k2, line });
+        energyVertices.get(k1).edgeKeys.push(ek);
+        energyVertices.get(k2).edgeKeys.push(ek);
+      }
     }
   }
-  // Insert BEFORE first tile so the lines render under the hex tiles —
-  // only the gap slivers between hexes are visible.
-  fieldEl.insertBefore(connectorsSvg, fieldEl.firstChild);
+
+  // Now that all centroids are settled, write the line coordinates.
+  for (const [, e] of energyEdges) {
+    const v1 = energyVertices.get(e.v1Key);
+    const v2 = energyVertices.get(e.v2Key);
+    e.line.setAttribute('x1', v1.x.toFixed(2));
+    e.line.setAttribute('y1', v1.y.toFixed(2));
+    e.line.setAttribute('x2', v2.x.toFixed(2));
+    e.line.setAttribute('y2', v2.y.toFixed(2));
+  }
+
+  fieldEl.insertBefore(energySvg, fieldEl.firstChild);
+}
+
+// BFS from the 6 corners of the active hex, then animate only the outward
+// edges (level diff of exactly 1). Each level loses 20% intensity and shifts
+// colour from gold toward cyan.
+function updateEnergyFlow(activeTile) {
+  if (!activeTile || !tileCornerKeys.has(activeTile)) return;
+  const sourceKeys = tileCornerKeys.get(activeTile);
+
+  const levels = new Map();
+  const queue = [];
+  for (const k of sourceKeys) {
+    levels.set(k, 0);
+    queue.push(k);
+  }
+  let head = 0;
+  while (head < queue.length) {
+    const k = queue[head++];
+    const lvl = levels.get(k);
+    const v = energyVertices.get(k);
+    if (!v) continue;
+    for (const ek of v.edgeKeys) {
+      const e = energyEdges.get(ek);
+      const adjK = (e.v1Key === k) ? e.v2Key : e.v1Key;
+      if (!levels.has(adjK)) {
+        levels.set(adjK, lvl + 1);
+        queue.push(adjK);
+      }
+    }
+  }
+
+  for (const [, e] of energyEdges) {
+    const l1 = levels.get(e.v1Key);
+    const l2 = levels.get(e.v2Key);
+    // Only animate outward "branch" edges (one end one ring deeper than the other).
+    // Same-level edges (active perimeter, side connections) are hidden so the
+    // flow reads as a clean tree fanning out from the active corners.
+    if (l1 == null || l2 == null || Math.abs(l1 - l2) !== 1) {
+      e.line.style.opacity = '0';
+      continue;
+    }
+    const reverse = l1 > l2;
+    const lower = reverse ? l2 : l1;
+    const fromV = energyVertices.get(reverse ? e.v2Key : e.v1Key);
+    const toV   = energyVertices.get(reverse ? e.v1Key : e.v2Key);
+    e.line.setAttribute('x1', fromV.x.toFixed(2));
+    e.line.setAttribute('y1', fromV.y.toFixed(2));
+    e.line.setAttribute('x2', toV.x.toFixed(2));
+    e.line.setAttribute('y2', toV.y.toFixed(2));
+
+    const intensity = Math.pow(0.8, lower);   // -20% per split
+    const goldMix   = Math.max(0, 100 - lower * 22);
+    const delay     = lower * 0.45;            // staggered outward
+    e.line.style.setProperty('--energy-opacity', intensity.toFixed(3));
+    e.line.style.setProperty('--gold-mix', `${goldMix}%`);
+    e.line.style.setProperty('--wave-delay', `${delay.toFixed(2)}s`);
+    e.line.style.opacity = '';
+  }
 }
 
 function applyDistanceFade(centerTile) {
   if (!centerTile) return;
   for (const t of tiles) {
     const d = axialDist({ q: t.q, r: t.r }, { q: centerTile.q, r: centerTile.r });
-    let o;
     if (t.isEmpty) {
-      o = Math.max(0.04, 0.26 - d * 0.025);
+      // Only the empty surround fades by distance. Person tiles stay at full
+      // brightness so they don't appear to flicker as the centre moves.
+      const o = Math.max(0.04, 0.26 - d * 0.025);
+      t.root.style.setProperty('--dist-opacity', o.toFixed(3));
     } else {
-      o = Math.max(0.48, 1 - d * 0.10);
+      t.root.style.setProperty('--dist-opacity', '1');
     }
-    t.root.style.setProperty('--dist-opacity', o.toFixed(3));
-    // Outward wave: each tile flashes a fraction of a second after the
-    // closer ones, so the burst appears to radiate from the centre.
-    const waveDelay = d * 0.22;
-    t.root.style.setProperty('--wave-delay', `${waveDelay.toFixed(2)}s`);
-    // Energy colour gradient: stroke is gold at the centre (d=0), interpolates
-    // to the accent (cyan) by ~ring 4. Drives a color-mix() in CSS.
-    const goldMix = Math.max(0, 100 - d * 26);
-    t.root.style.setProperty('--gold-mix', `${goldMix}%`);
   }
-
-  // Update the connector energy lines too: each line's distance from the
-  // active centre is the average of its two endpoints' distances.
-  for (const c of connectors) {
-    const d1 = axialDist({ q: c.t1.q, r: c.t1.r }, { q: centerTile.q, r: centerTile.r });
-    const d2 = axialDist({ q: c.t2.q, r: c.t2.r }, { q: centerTile.q, r: centerTile.r });
-    const dMid = (d1 + d2) / 2;
-    const goldMix = Math.max(0, 100 - dMid * 24);
-    const waveDelay = dMid * 0.20;
-    c.line.style.setProperty('--gold-mix', `${goldMix}%`);
-    c.line.style.setProperty('--wave-delay', `${waveDelay.toFixed(2)}s`);
-    // Pulse direction: from the endpoint nearer the active centre to the
-    // farther one, so energy reads as flowing outward.
-    const reverse = d1 > d2;
-    c.line.setAttribute('x1', (reverse ? c.t2.x : c.t1.x).toFixed(2));
-    c.line.setAttribute('y1', (reverse ? c.t2.y : c.t1.y).toFixed(2));
-    c.line.setAttribute('x2', (reverse ? c.t1.x : c.t2.x).toFixed(2));
-    c.line.setAttribute('y2', (reverse ? c.t1.y : c.t2.y).toFixed(2));
-  }
+  updateEnergyFlow(centerTile);
 }
 
 function positionBurst(centerTile) {
@@ -246,9 +322,8 @@ function positionBurst(centerTile) {
 }
 
 function computeR() {
-  // 50% larger hexes (user request). Cluster still fits because the
-  // doubled spiral leaves room and we mask soft edges of the field.
-  return Math.max(72, Math.min(220, Math.min(window.innerWidth, window.innerHeight) * 0.0825));
+  // Another +50% on the previous size (≈ 2.25× the original scaffold).
+  return Math.max(108, Math.min(330, Math.min(window.innerWidth, window.innerHeight) * 0.12375));
 }
 
 function onResize() {

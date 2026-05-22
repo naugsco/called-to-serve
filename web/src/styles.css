@@ -115,23 +115,28 @@ body { font-family: var(--font-sans); }
   will-change: transform;
 }
 
-/* Energy lines in the SPACES between hexes. Drawn under all tiles so only
-   the slivers in the gaps are visible. Each line pulses outward from the
-   active cell, gold near it, cyan farther out. */
-.hex-connectors .connector {
+/* Energy lines along the hex lattice edges between the active cell's corners
+   and the rest of the field. BFS in JS sets per-line:
+     --energy-opacity  : 0.8^level (loses 20% each split)
+     --gold-mix        : 100% gold at active, → 0% (cyan) by ring ~4
+     --wave-delay      : higher levels start later, so the wave radiates outward
+   Only outward edges (level diff exactly 1) are visible — same-level lateral
+   edges are hidden so the flow reads as a clean branching tree. */
+.hex-energy .energy-line {
   fill: none;
   stroke: color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent));
   stroke-width: 2.4;
   stroke-linecap: round;
-  /* A short bright dash + a long gap, so one moving pulse per line. */
-  stroke-dasharray: 7 600;
+  /* Each hex side is roughly R units long; with the dasharray below, a single
+     short pulse traverses the whole side per cycle. */
+  stroke-dasharray: 6 600;
   stroke-dashoffset: 0;
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
-  opacity: 0.95;
-  animation: connector-pulse 3.2s linear infinite;
+  opacity: var(--energy-opacity, 1);
+  animation: energy-flow 2.4s linear infinite;
   animation-delay: var(--wave-delay, 0s);
 }
-@keyframes connector-pulse {
+@keyframes energy-flow {
   from { stroke-dashoffset: 600; }
   to   { stroke-dashoffset: -50; }
 }
@@ -227,17 +232,9 @@ body { font-family: var(--font-sans); }
 .hex-frame {
   position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
   overflow: visible; /* let drop-shadow + dash glow extend past the bbox */
-  /* Outward energy wave: brief brightness flash whose delay grows with
-     distance from the active cell, so the wave appears to radiate. */
-  animation: wave-flash 3.2s linear infinite;
-  animation-delay: var(--wave-delay, 0s);
+  /* No animations here — all motion lives in the SPACES between hexes
+     (see .hex-energy below) so person tiles read as still glass panes. */
 }
-@keyframes wave-flash {
-  0%, 14%, 30%, 100% { filter: none; }
-  20% { filter: brightness(1.7) drop-shadow(0 0 8px rgba(var(--gold-rgb), 0.55)); }
-}
-/* Active cell suppresses its own wave-flash (it's the source). */
-.hex-tile.filled.active .hex-frame { animation: none; }
 
 /* Glass pane fill — translucent gradient lit from above. */
 .hex-frame .glass-fill {
