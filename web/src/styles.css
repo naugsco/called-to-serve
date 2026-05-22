@@ -124,25 +124,44 @@ body { font-family: var(--font-sans); }
      --wave-delay      : level * cross-time, so the wave fans outward in time
    Only outward edges (level diff exactly 1) are visible — same-level lateral
    edges are hidden so the discharge reads as a clean branching tree. */
+/* Energy is rendered as TWO layered strokes per edge.
+   - .core: short, thick, sharp head with a multi-stop glow drop-shadow.
+            Reads as a glowing droplet that punches across the hex side.
+   - .trail: longer, thinner, dimmer wake blurred behind the core. Drags
+            across the corner as the next ring's core lights up.
+   Both layers' dashoffsets are JS-animated; the trail lags so its leading
+   edge is co-aligned with the core's leading edge. */
 .hex-energy .energy-line {
   fill: none;
-  stroke: color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent));
-  stroke-width: 3;
   stroke-linecap: round;
-  /* Pulse length 320px — longer than one hex side (R up to ~330) so the trail
-     spans a corner: while the head crosses to the next edge, the tail is
-     still visible on the previous edge. The dashoffset itself is animated
-     from JS (RAF) because CSS-animated SVG stroke-dashoffset has rendering
-     quirks across browsers. */
-  stroke-dasharray: 320 6000;
-  stroke-dashoffset: 320;  /* start off-line; JS sweeps it from +320 → -400 */
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)))
-          drop-shadow(0 0 14px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
+  pointer-events: none;
   opacity: 0;
 }
-.hex-energy.firing .energy-line {
-  opacity: var(--energy-opacity, 1);
+.hex-energy .energy-line.core {
+  stroke: color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent));
+  stroke-width: 5;
+  stroke-dasharray: 18 9999;
+  stroke-dashoffset: 18;
+  /* Three drop-shadow stops give the "core + falloff" feel: a hot 4 px
+     halo, a soft 10 px bloom, and a diffuse 22 px atmosphere. */
+  filter:
+    drop-shadow(0 0  4px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)))
+    drop-shadow(0 0 10px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)))
+    drop-shadow(0 0 22px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
 }
+.hex-energy .energy-line.trail {
+  stroke: color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent));
+  stroke-width: 3;
+  stroke-dasharray: 110 9999;
+  stroke-dashoffset: 110;
+  /* Slight stroke blur plus its own halo, so the wake looks like ionized air
+     trailing the head rather than a parallel line. */
+  filter:
+    blur(1.5px)
+    drop-shadow(0 0 5px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
+}
+.hex-energy.firing .energy-line.core  { opacity: var(--energy-opacity, 1); }
+.hex-energy.firing .energy-line.trail { opacity: calc(var(--energy-opacity, 1) * 0.32); }
 
 /* Radial energy burst emitted by the active cell. Lives in fieldEl coords
    so it inherits the field translate just like the tiles do. */

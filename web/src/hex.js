@@ -214,25 +214,34 @@ function buildEnergyGraph() {
       const k2 = keys[(i + 1) % 6];
       const ek = [k1, k2].sort().join('--');
       if (!energyEdges.has(ek)) {
-        const line = document.createElementNS(svgNS, 'line');
-        line.setAttribute('class', 'energy-line');
-        line.style.opacity = '0';
-        energySvg.appendChild(line);
-        energyEdges.set(ek, { v1Key: k1, v2Key: k2, line });
+        // Two layers per edge: a dim "trail" wake (behind, blurred) and a
+        // bright "core" head (in front, sharp+glow). Both move together;
+        // the core's leading edge is aligned with the trail's leading edge.
+        const trail = document.createElementNS(svgNS, 'line');
+        trail.setAttribute('class', 'energy-line trail');
+        trail.style.opacity = '0';
+        energySvg.appendChild(trail);
+        const core = document.createElementNS(svgNS, 'line');
+        core.setAttribute('class', 'energy-line core');
+        core.style.opacity = '0';
+        energySvg.appendChild(core);
+        energyEdges.set(ek, { v1Key: k1, v2Key: k2, core, trail });
         energyVertices.get(k1).edgeKeys.push(ek);
         energyVertices.get(k2).edgeKeys.push(ek);
       }
     }
   }
 
-  // Now that all centroids are settled, write the line coordinates.
+  // Now that all centroids are settled, write the line coordinates onto both layers.
   for (const [, e] of energyEdges) {
     const v1 = energyVertices.get(e.v1Key);
     const v2 = energyVertices.get(e.v2Key);
-    e.line.setAttribute('x1', v1.x.toFixed(2));
-    e.line.setAttribute('y1', v1.y.toFixed(2));
-    e.line.setAttribute('x2', v2.x.toFixed(2));
-    e.line.setAttribute('y2', v2.y.toFixed(2));
+    const x1 = v1.x.toFixed(2), y1 = v1.y.toFixed(2);
+    const x2 = v2.x.toFixed(2), y2 = v2.y.toFixed(2);
+    e.core .setAttribute('x1', x1); e.core .setAttribute('y1', y1);
+    e.core .setAttribute('x2', x2); e.core .setAttribute('y2', y2);
+    e.trail.setAttribute('x1', x1); e.trail.setAttribute('y1', y1);
+    e.trail.setAttribute('x2', x2); e.trail.setAttribute('y2', y2);
   }
 
   // Append AT THE END of fieldEl so the energy lines render ABOVE every
@@ -274,29 +283,33 @@ function updateEnergyFlow(activeTile) {
   for (const [, e] of energyEdges) {
     const l1 = levels.get(e.v1Key);
     const l2 = levels.get(e.v2Key);
-    // Only animate outward "branch" edges (one end one ring deeper than the other).
-    // Same-level edges (active perimeter, side connections) are hidden so the
-    // flow reads as a clean tree fanning out from the active corners.
     if (l1 == null || l2 == null || Math.abs(l1 - l2) !== 1) {
-      e.line.style.opacity = '0';
+      e.core.style.opacity = '0';
+      e.trail.style.opacity = '0';
+      e.core.style.removeProperty('--wave-delay');
+      e.trail.style.removeProperty('--wave-delay');
       continue;
     }
     const reverse = l1 > l2;
     const lower = reverse ? l2 : l1;
     const fromV = energyVertices.get(reverse ? e.v2Key : e.v1Key);
     const toV   = energyVertices.get(reverse ? e.v1Key : e.v2Key);
-    e.line.setAttribute('x1', fromV.x.toFixed(2));
-    e.line.setAttribute('y1', fromV.y.toFixed(2));
-    e.line.setAttribute('x2', toV.x.toFixed(2));
-    e.line.setAttribute('y2', toV.y.toFixed(2));
+    const x1 = fromV.x.toFixed(2), y1 = fromV.y.toFixed(2);
+    const x2 = toV.x.toFixed(2),   y2 = toV.y.toFixed(2);
+    e.core .setAttribute('x1', x1); e.core .setAttribute('y1', y1);
+    e.core .setAttribute('x2', x2); e.core .setAttribute('y2', y2);
+    e.trail.setAttribute('x1', x1); e.trail.setAttribute('y1', y1);
+    e.trail.setAttribute('x2', x2); e.trail.setAttribute('y2', y2);
 
     const intensity = Math.pow(0.8, lower);   // -20% per split
     const goldMix   = Math.max(0, 100 - lower * 22);
-    const delay     = lower * 0.45;            // staggered outward
-    e.line.style.setProperty('--energy-opacity', intensity.toFixed(3));
-    e.line.style.setProperty('--gold-mix', `${goldMix}%`);
-    e.line.style.setProperty('--wave-delay', `${delay.toFixed(2)}s`);
-    e.line.style.opacity = '';
+    const delay     = lower * 0.4;             // tight cascade for burst feel
+    for (const l of [e.core, e.trail]) {
+      l.style.setProperty('--energy-opacity', intensity.toFixed(3));
+      l.style.setProperty('--gold-mix', `${goldMix}%`);
+      l.style.setProperty('--wave-delay', `${delay.toFixed(2)}s`);
+      l.style.opacity = '';
+    }
   }
 }
 
@@ -326,16 +339,19 @@ function positionBurst(centerTile) {
   burstEl.classList.add('on');
 }
 
-// One-shot electric discharge along the BFS tree of energy edges. Runs each
-// outward edge's pulse via requestAnimationFrame (CSS animation of SVG
-// stroke-dashoffset is unreliable across browsers). Pulses cascade outward —
-// each level fires `level * CROSS_TIME` later than the previous, so a head
-// reaching the end of one edge coincides with the tail still on it as the
-// head appears on the next ring's edges.
-const ENERGY_DURATION_MS = 1400;
-const ENERGY_DASH_FROM   = 320;   // dash off-line before line start
-const ENERGY_DASH_TO     = -400;  // dash off-line past line end (covers R up to 320)
-const ENERGY_CROSS_MS    = 450;   // per-level delay (cross-time)
+// One-shot electric discharge along the BFS tree of energy edges. Each edge
+// has TWO layers — a bright "core" head and a longer dim "trail" wake. The
+// core's leading edge is aligned with the trail's leading edge (trail's
+// dashoffset = core's offset + (trail_dash − core_dash)).
+//
+// Easing is cubic ease-OUT: the pulse blasts out fast and decelerates as it
+// fades, giving the "burst of energy" feel rather than a smooth slide.
+const ENERGY_DURATION_MS = 1600;
+const ENERGY_CORE_DASH   = 18;
+const ENERGY_TRAIL_DASH  = 110;
+const ENERGY_DASH_FROM   = ENERGY_CORE_DASH;             // dash trailing edge just before path 0
+const ENERGY_DASH_TO     = -(ENERGY_CORE_DASH + 360);    // dash fully past line end (max R ≈ 340)
+const TRAIL_LAG          = ENERGY_TRAIL_DASH - ENERGY_CORE_DASH;
 let energyRafId = 0;
 let energyStartMs = 0;
 
@@ -347,8 +363,9 @@ function firePulse() {
   // (see CSS). Without it the JS-animated dashoffset would be invisible.
   energySvg.classList.add('firing');
   for (const [, e] of energyEdges) {
-    if (!e.line.style.getPropertyValue('--wave-delay')) continue;
-    e.line.style.strokeDashoffset = String(ENERGY_DASH_FROM);
+    if (!e.core.style.getPropertyValue('--wave-delay')) continue;
+    e.core .style.strokeDashoffset = String(ENERGY_DASH_FROM);
+    e.trail.style.strokeDashoffset = String(ENERGY_DASH_FROM + TRAIL_LAG);
   }
   energyRafId = requestAnimationFrame(tickEnergy);
 }
@@ -357,7 +374,7 @@ function tickEnergy(now) {
   const elapsed = now - energyStartMs;
   let stillRunning = false;
   for (const [, e] of energyEdges) {
-    const delayStr = e.line.style.getPropertyValue('--wave-delay');
+    const delayStr = e.core.style.getPropertyValue('--wave-delay');
     if (!delayStr) continue;
     const delayMs = parseFloat(delayStr) * 1000;
     const local = elapsed - delayMs;
@@ -366,14 +383,16 @@ function tickEnergy(now) {
       continue; // still in delay phase, leave at FROM
     }
     if (local >= ENERGY_DURATION_MS) {
-      e.line.style.strokeDashoffset = String(ENERGY_DASH_TO);
-      continue; // done
+      e.core .style.strokeDashoffset = String(ENERGY_DASH_TO);
+      e.trail.style.strokeDashoffset = String(ENERGY_DASH_TO + TRAIL_LAG);
+      continue;
     }
     stillRunning = true;
     const t = local / ENERGY_DURATION_MS;
-    const eased = easeInOut(t);
+    const eased = easeOut(t);
     const off = ENERGY_DASH_FROM + (ENERGY_DASH_TO - ENERGY_DASH_FROM) * eased;
-    e.line.style.strokeDashoffset = off.toFixed(1);
+    e.core .style.strokeDashoffset = off.toFixed(1);
+    e.trail.style.strokeDashoffset = (off + TRAIL_LAG).toFixed(1);
   }
   if (stillRunning) {
     energyRafId = requestAnimationFrame(tickEnergy);
@@ -382,9 +401,11 @@ function tickEnergy(now) {
   }
 }
 
-function easeInOut(t) {
-  // Smooth cubic — matches the feel of cubic-bezier(.32, 0, .74, 1) closely enough.
-  return t * t * (3 - 2 * t);
+// Cubic ease-out — fast start, slow end. The "burst then decelerate" curve
+// that makes the discharge read as kinetic energy rather than a slide.
+function easeOut(t) {
+  const u = 1 - t;
+  return 1 - u * u * u;
 }
 
 function computeR() {
