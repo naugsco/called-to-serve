@@ -116,29 +116,32 @@ body { font-family: var(--font-sans); }
 }
 
 /* Energy lines along the hex lattice edges between the active cell's corners
-   and the rest of the field. BFS in JS sets per-line:
+   and the rest of the field. Plays ONCE on each highlight (the .hex-energy
+   container gets a .firing class toggled in JS), then disappears. BFS in JS
+   sets per-line:
      --energy-opacity  : 0.8^level (loses 20% each split)
      --gold-mix        : 100% gold at active, → 0% (cyan) by ring ~4
-     --wave-delay      : higher levels start later, so the wave radiates outward
+     --wave-delay      : level * cross-time, so the wave fans outward in time
    Only outward edges (level diff exactly 1) are visible — same-level lateral
-   edges are hidden so the flow reads as a clean branching tree. */
+   edges are hidden so the discharge reads as a clean branching tree. */
 .hex-energy .energy-line {
   fill: none;
   stroke: color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent));
-  stroke-width: 2.4;
+  stroke-width: 3;
   stroke-linecap: round;
-  /* Each hex side is roughly R units long; with the dasharray below, a single
-     short pulse traverses the whole side per cycle. */
-  stroke-dasharray: 6 600;
-  stroke-dashoffset: 0;
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
-  opacity: var(--energy-opacity, 1);
-  animation: energy-flow 2.4s linear infinite;
-  animation-delay: var(--wave-delay, 0s);
+  /* Pulse length 320px — longer than one hex side (R up to ~330) so the trail
+     spans a corner: while the head crosses to the next edge, the tail is
+     still visible on the previous edge. The dashoffset itself is animated
+     from JS (RAF) because CSS-animated SVG stroke-dashoffset has rendering
+     quirks across browsers. */
+  stroke-dasharray: 320 6000;
+  stroke-dashoffset: 320;  /* start off-line; JS sweeps it from +320 → -400 */
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)))
+          drop-shadow(0 0 14px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
+  opacity: 0;
 }
-@keyframes energy-flow {
-  from { stroke-dashoffset: 600; }
-  to   { stroke-dashoffset: -50; }
+.hex-energy.firing .energy-line {
+  opacity: var(--energy-opacity, 1);
 }
 
 /* Radial energy burst emitted by the active cell. Lives in fieldEl coords
@@ -156,7 +159,7 @@ body { font-family: var(--font-sans); }
   z-index: 4;
 }
 .energy-burst.on {
-  animation: burst-out 3.2s ease-out infinite;
+  animation: burst-out 1.6s ease-out 1 forwards;
 }
 @keyframes burst-out {
   0%   { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }

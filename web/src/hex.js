@@ -150,7 +150,8 @@ export function buildField(missionaries) {
     setActive(missionaryTiles[0]);
     applyDistanceFade(missionaryTiles[0]);
     updateEnergyFlow(missionaryTiles[0]);
-    positionBurst(missionaryTiles[0]);
+    // No firePulse() here — discharge fires when the field actually appears
+    // (showHex) or when a new missionary is centred (centerOnMissionary).
   }
 
   window.addEventListener('resize', onResize);
@@ -234,7 +235,11 @@ function buildEnergyGraph() {
     e.line.setAttribute('y2', v2.y.toFixed(2));
   }
 
-  fieldEl.insertBefore(energySvg, fieldEl.firstChild);
+  // Append AT THE END of fieldEl so the energy lines render ABOVE every
+  // tile bbox (otherwise rectangular tile divs hide most of the lines that
+  // run along hex edges). Lines are thin and only touch the hex perimeter,
+  // so they don't significantly cover photos.
+  fieldEl.appendChild(energySvg);
 }
 
 // BFS from the 6 corners of the active hex, then animate only the outward
@@ -319,6 +324,67 @@ function positionBurst(centerTile) {
   burstEl.classList.remove('on');
   void burstEl.offsetWidth;
   burstEl.classList.add('on');
+}
+
+// One-shot electric discharge along the BFS tree of energy edges. Runs each
+// outward edge's pulse via requestAnimationFrame (CSS animation of SVG
+// stroke-dashoffset is unreliable across browsers). Pulses cascade outward —
+// each level fires `level * CROSS_TIME` later than the previous, so a head
+// reaching the end of one edge coincides with the tail still on it as the
+// head appears on the next ring's edges.
+const ENERGY_DURATION_MS = 1400;
+const ENERGY_DASH_FROM   = 320;   // dash off-line before line start
+const ENERGY_DASH_TO     = -400;  // dash off-line past line end (covers R up to 320)
+const ENERGY_CROSS_MS    = 450;   // per-level delay (cross-time)
+let energyRafId = 0;
+let energyStartMs = 0;
+
+function firePulse() {
+  if (!energySvg) return;
+  cancelAnimationFrame(energyRafId);
+  energyStartMs = performance.now();
+  // `.firing` is what flips opacity from 0 to var(--energy-opacity) per line
+  // (see CSS). Without it the JS-animated dashoffset would be invisible.
+  energySvg.classList.add('firing');
+  for (const [, e] of energyEdges) {
+    if (!e.line.style.getPropertyValue('--wave-delay')) continue;
+    e.line.style.strokeDashoffset = String(ENERGY_DASH_FROM);
+  }
+  energyRafId = requestAnimationFrame(tickEnergy);
+}
+
+function tickEnergy(now) {
+  const elapsed = now - energyStartMs;
+  let stillRunning = false;
+  for (const [, e] of energyEdges) {
+    const delayStr = e.line.style.getPropertyValue('--wave-delay');
+    if (!delayStr) continue;
+    const delayMs = parseFloat(delayStr) * 1000;
+    const local = elapsed - delayMs;
+    if (local < 0) {
+      stillRunning = true;
+      continue; // still in delay phase, leave at FROM
+    }
+    if (local >= ENERGY_DURATION_MS) {
+      e.line.style.strokeDashoffset = String(ENERGY_DASH_TO);
+      continue; // done
+    }
+    stillRunning = true;
+    const t = local / ENERGY_DURATION_MS;
+    const eased = easeInOut(t);
+    const off = ENERGY_DASH_FROM + (ENERGY_DASH_TO - ENERGY_DASH_FROM) * eased;
+    e.line.style.strokeDashoffset = off.toFixed(1);
+  }
+  if (stillRunning) {
+    energyRafId = requestAnimationFrame(tickEnergy);
+  } else {
+    energyRafId = 0;
+  }
+}
+
+function easeInOut(t) {
+  // Smooth cubic — matches the feel of cubic-bezier(.32, 0, .74, 1) closely enough.
+  return t * t * (3 - 2 * t);
 }
 
 function computeR() {
@@ -513,8 +579,10 @@ export function showHex(v) {
     setActive(missionaryTiles[0]);
     applyDistanceFade(missionaryTiles[0]);
     positionBurst(missionaryTiles[0]);
+    firePulse();
   } else if (!v) {
     burstEl?.classList.remove('on');
+    energySvg?.classList.remove('firing');
   }
 }
 
@@ -524,8 +592,10 @@ export function centerOnMissionary(slug, duration = 1.2) {
   for (const x of tiles) if (!x.isEmpty) x.root.classList.remove('active');
   t.root.classList.add('arriving');
   applyDistanceFade(t);
-  // Hold the burst until the new centre settles, then fire it.
+  // Hold both the burst and the electric discharge until the new centre
+  // settles, then trigger both as a single blast.
   burstEl?.classList.remove('on');
+  energySvg?.classList.remove('firing');
   return new Promise(resolve => {
     gsap.to(fieldEl, {
       x: -t.x, y: -t.y, duration, ease: 'power3.inOut',
@@ -533,6 +603,7 @@ export function centerOnMissionary(slug, duration = 1.2) {
         t.root.classList.remove('arriving');
         t.root.classList.add('active');
         positionBurst(t);
+        firePulse();
         resolve();
       },
     });
