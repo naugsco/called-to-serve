@@ -7,6 +7,7 @@
 //   - Otherwise falls back to sample-missionaries.json + generated SVG portraits.
 
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { portraitSvg } from './portrait.mjs';
@@ -18,6 +19,19 @@ const ROOT = resolve(__dirname, '..');
 const PUBLIC_DIR = resolve(ROOT, 'web/public');
 const OUT_JSON = resolve(PUBLIC_DIR, 'missionaries.json');
 const IMAGES_DIR = resolve(PUBLIC_DIR, 'images');
+
+// Lightweight .env loader so local dev doesn't require `export` gymnastics.
+// Loads tools/.secrets/.env if present (gitignored). CI sets env directly.
+const ENV_FILE = resolve(__dirname, '.secrets/.env');
+if (existsSync(ENV_FILE)) {
+  for (const line of readFileSync(ENV_FILE, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/);
+    if (!m) continue;
+    let v = m[2].trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    if (process.env[m[1]] === undefined) process.env[m[1]] = v;
+  }
+}
 
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has('--dry-run');
