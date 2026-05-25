@@ -65,16 +65,31 @@ async function loadSample() {
 
 async function loadReal() {
   console.log('[sync] using live Google Sheets + Drive');
-  const [roster, submissions] = await Promise.all([readRoster(), readSubmissions()]);
-  const subByName = new Map(submissions.map(s => [normalizeName(s.name), s]));
+  const knownMissions = Array.from(missionByName.keys());
+  const [roster, submissions] = await Promise.all([
+    readRoster(knownMissions),
+    readSubmissions(),
+  ]);
+  // Group submissions by normalized missionary name — parents may submit
+  // multiple times, and each row may carry multiple Drive URLs.
+  const subsByName = new Map();
+  for (const s of submissions) {
+    const key = normalizeName(s.name);
+    if (!subsByName.has(key)) subsByName.set(key, []);
+    subsByName.get(key).push(s);
+  }
   return roster.map(r => {
-    const sub = subByName.get(normalizeName(r.name));
+    const subs = subsByName.get(normalizeName(r.name)) || [];
+    const allowed = subs.filter(s => s.permission);
+    const urls = allowed.flatMap(s => s.photoUrls);
+    const bio = (subs.find(s => s.bio)?.bio) || null;
     return {
       name: r.name,
       mission: r.mission,
-      permission: sub?.permission ?? false,
-      bio: sub?.bio ?? null,
-      sourcePhotos: sub?.photoUrl && sub.permission ? [{ kind: 'drive', url: sub.photoUrl }] : [],
+      raw: r.raw,
+      permission: allowed.length > 0,
+      bio,
+      sourcePhotos: urls.map(u => ({ kind: 'drive', url: u })),
     };
   });
 }
@@ -95,9 +110,15 @@ function cleanHq(hq) {
 const unmatched = [];
 const missionaries = [];
 for (const row of sourceRows) {
+  if (!row.mission) {
+    // Roster row that didn't parse — column A had no recognisable mission.
+    unmatched.push({ raw: row.raw || row.name, why: 'no mission found in cell', name: row.name });
+    continue;
+  }
   const mission = missionByName.get(row.mission);
-  if (!mission) { unmatched.push(row.mission); continue; }
+  if (!mission) { unmatched.push({ raw: row.raw || row.name, why: 'mission name not in seed/extra', name: row.name, mission: row.mission }); continue; }
   const slug = slugify(row.name);
+  // `raw` is a diagnostic field on the source row; not part of the manifest.
   missionaries.push({
     slug,
     name: row.name,
@@ -117,9 +138,16 @@ for (const row of sourceRows) {
 }
 
 if (unmatched.length) {
-  console.error(`\n[sync] ERROR: ${unmatched.length} mission(s) not in seed/extra:`);
-  for (const u of unmatched) console.error(`  - ${u}`);
-  console.error(`\nAdd to tools/missions-extra.json with lat/lng.\n`);
+  console.error(`\n[sync] ERROR: ${unmatched.length} roster row(s) couldn't be matched to a mission:\n`);
+  for (const u of unmatched) {
+    console.error(`  • ${u.raw}`);
+    console.error(`      reason: ${u.why}`);
+    if (u.mission) {
+      console.error(`      add to tools/missions-extra.json:`);
+      console.error(`        { "name": "${u.mission}", "hq": "City, REGION", "country": "Country", "lat": 0.0, "lng": 0.0 }`);
+    }
+  }
+  console.error(`\nFix the master-sheet cells OR add the mission(s) above to tools/missions-extra.json (you'll need lat/lng — Google "<city name> coordinates" works).\n`);
   process.exit(1);
 }
 
