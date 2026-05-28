@@ -50,10 +50,12 @@ const allMissions = [...seedRaw.missions, ...(extraRaw.missions ?? [])];
 for (const m of allMissions) m.slug = slugify(m.name);
 const missionByName = new Map(allMissions.map(m => [m.name, m]));
 
-// Live mode if BOTH sheet IDs are set. Auth is picked up automatically:
-// GOOGLE_SA_JSON (service-account key) takes priority, else Application
-// Default Credentials (gcloud auth application-default login).
-const USE_REAL = !!(process.env.SUBMISSIONS_SHEET_ID && process.env.ROSTER_SHEET_ID);
+// Live mode if EITHER auth-mode IDs are set OR published-CSV URLs are set.
+// Auth options for the API mode are picked up automatically by google-auth.mjs
+// (service-account key OR Application Default Credentials).
+const HAS_API_IDS  = !!(process.env.SUBMISSIONS_SHEET_ID && process.env.ROSTER_SHEET_ID);
+const HAS_CSV_URLS = !!(process.env.PUBLIC_SUBMISSIONS_CSV_URL && process.env.PUBLIC_ROSTER_CSV_URL);
+const USE_REAL = HAS_API_IDS || HAS_CSV_URLS;
 const sourceRows = USE_REAL ? await loadReal() : await loadSample();
 
 async function loadSample() {
@@ -67,9 +69,18 @@ async function loadSample() {
 }
 
 async function loadReal() {
-  const { getGoogleAuth, describeAuth } = await import('./google-auth.mjs');
-  await getGoogleAuth(); // eagerly so the auth-label log fires before sheet reads
-  console.log(`[sync] using live Google Sheets + Drive (${describeAuth()})`);
+  // Only call into Google auth if at least one reader path needs the API.
+  // CSV-mode readers short-circuit before hitting client(), so going full-CSV
+  // works with zero credentials.
+  const apiNeeded = !process.env.PUBLIC_ROSTER_CSV_URL
+                 || !process.env.PUBLIC_SUBMISSIONS_CSV_URL;
+  let label = 'published CSV';
+  if (apiNeeded) {
+    const { getGoogleAuth, describeAuth } = await import('./google-auth.mjs');
+    await getGoogleAuth();
+    label = `Sheets API via ${describeAuth()}`;
+  }
+  console.log(`[sync] using live data (${label})`);
   const knownMissions = Array.from(missionByName.keys());
   const [roster, submissions] = await Promise.all([
     readRoster(knownMissions),

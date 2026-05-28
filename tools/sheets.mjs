@@ -11,6 +11,7 @@
 //   ROSTER_SHEET_ID        — master sheet with the "Missionaries" tab
 
 import { getGoogleAuth } from './google-auth.mjs';
+import { fetchCsv } from './csv.mjs';
 
 let _sheets;
 async function client() {
@@ -24,9 +25,16 @@ async function client() {
 // One submission row in the photo-submissions sheet. Column C may carry
 // MULTIPLE Drive URLs if the Google Form used a multi-file upload question —
 // they typically arrive comma- or newline-separated.
+//
+// Two reader paths:
+//   • PUBLIC_SUBMISSIONS_CSV_URL set → fetch via published-CSV (no auth)
+//   • else                          → use Sheets API (auth required)
 export async function readSubmissions() {
+  const csvUrl = process.env.PUBLIC_SUBMISSIONS_CSV_URL;
+  if (csvUrl) return readSubmissionsViaCsv(csvUrl);
+
   const id = process.env.SUBMISSIONS_SHEET_ID;
-  if (!id) throw new Error('SUBMISSIONS_SHEET_ID not set');
+  if (!id) throw new Error('Neither SUBMISSIONS_SHEET_ID nor PUBLIC_SUBMISSIONS_CSV_URL is set');
   const s = await client();
   // Columns B:E — name, photo link, permission yes/no, bio.
   const r = await s.spreadsheets.values.get({ spreadsheetId: id, range: 'B:E' });
@@ -38,6 +46,24 @@ export async function readSubmissions() {
       photoUrls: splitPhotoUrls(row[1] || ''),
       permission: /^y/i.test(row[2] ?? ''),
       bio: row[3]?.trim() || null,
+    }));
+}
+
+// Published-CSV variant. The CSV columns must mirror the API's B:E shape:
+// col0=name, col1=photo link, col2=Yes/No, col3=bio. Sheets' Publish-to-web
+// preserves the column order, so just publish the same tab as-is.
+async function readSubmissionsViaCsv(url) {
+  const rows = await fetchCsv(url);
+  // Drop header row (best-effort: drop row 1 if it looks like a header).
+  const data = rows.length && /name|missionar/i.test(rows[0][0] || '')
+    ? rows.slice(1) : rows;
+  return data
+    .filter(row => row[0])
+    .map(row => ({
+      name: (row[0] || '').trim(),
+      photoUrls: splitPhotoUrls(row[1] || ''),
+      permission: /^y/i.test(row[2] ?? ''),
+      bio: (row[3] || '').trim() || null,
     }));
 }
 
@@ -54,8 +80,16 @@ function splitPhotoUrls(cell) {
 // names from the seed/extras (so "Smith Brazil São Paulo South Mission" works
 // even without a separator). Pass the known names so we can do the fallback.
 export async function readRoster(knownMissionNames = []) {
+  const csvUrl = process.env.PUBLIC_ROSTER_CSV_URL;
+  if (csvUrl) {
+    const rows = await fetchCsv(csvUrl);
+    return rows
+      .map(row => row[0])
+      .filter(v => v && !/^name|^missionar/i.test(v))
+      .map(cell => parseRosterCell(cell, knownMissionNames));
+  }
   const id = process.env.ROSTER_SHEET_ID;
-  if (!id) throw new Error('ROSTER_SHEET_ID not set');
+  if (!id) throw new Error('Neither ROSTER_SHEET_ID nor PUBLIC_ROSTER_CSV_URL is set');
   const s = await client();
   const r = await s.spreadsheets.values.get({ spreadsheetId: id, range: 'Missionaries!A:A' });
   const rows = r.data.values ?? [];
