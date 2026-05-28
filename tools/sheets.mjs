@@ -10,23 +10,13 @@
 //   SUBMISSIONS_SHEET_ID   — sheet with columns B/C/D/E (name, photo, perm, bio)
 //   ROSTER_SHEET_ID        — master sheet with the "Missionaries" tab
 
-import { readFile } from 'node:fs/promises';
+import { getGoogleAuth } from './google-auth.mjs';
 
 let _sheets;
 async function client() {
   if (_sheets) return _sheets;
   const { google } = await import('googleapis');
-  const raw = process.env.GOOGLE_SA_JSON;
-  if (!raw) throw new Error('GOOGLE_SA_JSON not set');
-  const creds = raw.trim().startsWith('{')
-    ? JSON.parse(raw)
-    : JSON.parse(await readFile(raw, 'utf8'));
-  const auth = new google.auth.JWT(
-    creds.client_email, null, creds.private_key,
-    ['https://www.googleapis.com/auth/spreadsheets.readonly',
-     'https://www.googleapis.com/auth/drive.readonly']
-  );
-  await auth.authorize();
+  const auth = await getGoogleAuth();
   _sheets = google.sheets({ version: 'v4', auth });
   return _sheets;
 }

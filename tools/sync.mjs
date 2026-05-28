@@ -50,7 +50,10 @@ const allMissions = [...seedRaw.missions, ...(extraRaw.missions ?? [])];
 for (const m of allMissions) m.slug = slugify(m.name);
 const missionByName = new Map(allMissions.map(m => [m.name, m]));
 
-const USE_REAL = process.env.GOOGLE_SA_JSON && process.env.SUBMISSIONS_SHEET_ID && process.env.ROSTER_SHEET_ID;
+// Live mode if BOTH sheet IDs are set. Auth is picked up automatically:
+// GOOGLE_SA_JSON (service-account key) takes priority, else Application
+// Default Credentials (gcloud auth application-default login).
+const USE_REAL = !!(process.env.SUBMISSIONS_SHEET_ID && process.env.ROSTER_SHEET_ID);
 const sourceRows = USE_REAL ? await loadReal() : await loadSample();
 
 async function loadSample() {
@@ -64,7 +67,9 @@ async function loadSample() {
 }
 
 async function loadReal() {
-  console.log('[sync] using live Google Sheets + Drive');
+  const { getGoogleAuth, describeAuth } = await import('./google-auth.mjs');
+  await getGoogleAuth(); // eagerly so the auth-label log fires before sheet reads
+  console.log(`[sync] using live Google Sheets + Drive (${describeAuth()})`);
   const knownMissions = Array.from(missionByName.keys());
   const [roster, submissions] = await Promise.all([
     readRoster(knownMissions),
@@ -179,12 +184,12 @@ for (const m of missionaries) {
     if (src.kind === 'svg') {
       const dest = resolve(dir, `${i + 1}.svg`);
       await writeFile(dest, portraitSvg(m.name, src.variant ?? i));
-      local.push(`/images/${m.slug}/${i + 1}.svg`);
+      local.push(`images/${m.slug}/${i + 1}.svg`);
     } else if (src.kind === 'drive') {
       try {
         const dest = resolve(dir, `${i + 1}.jpg`);
         await downloadPhoto(src.url, dest);
-        local.push(`/images/${m.slug}/${i + 1}.jpg`);
+        local.push(`images/${m.slug}/${i + 1}.jpg`);
       } catch (err) {
         console.warn(`[sync] photo download failed for ${m.name}: ${err.message}`);
       }

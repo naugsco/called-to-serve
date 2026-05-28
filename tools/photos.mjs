@@ -9,23 +9,15 @@
 // face-api is heavy (model files + canvas dep). Until wired, this module exports
 // `selectBestPhoto` as a no-op that returns the first photo.
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
+import { getGoogleAuth } from './google-auth.mjs';
 
 let _drive;
 async function driveClient() {
   if (_drive) return _drive;
   const { google } = await import('googleapis');
-  const raw = process.env.GOOGLE_SA_JSON;
-  if (!raw) throw new Error('GOOGLE_SA_JSON not set');
-  const creds = raw.trim().startsWith('{')
-    ? JSON.parse(raw)
-    : JSON.parse(await readFile(raw, 'utf8'));
-  const auth = new google.auth.JWT(
-    creds.client_email, null, creds.private_key,
-    ['https://www.googleapis.com/auth/drive.readonly']
-  );
-  await auth.authorize();
+  const auth = await getGoogleAuth();
   _drive = google.drive({ version: 'v3', auth });
   return _drive;
 }
