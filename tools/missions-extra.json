@@ -4,13 +4,18 @@
     "schema": "Same as missions-seed.json mission entries: { name, slug, hq, country, lat, lng }"
   },
   "missions": [
-    { "name": "Canada Vancouver Mission",     "hq": "Vancouver, BC",    "country": "Canada", "lat": 49.2827, "lng": -123.1207 },
-    { "name": "Canada Calgary Mission",       "hq": "Calgary, AB",      "country": "Canada", "lat": 51.0447, "lng": -114.0719 },
-    { "name": "Canada Edmonton Mission",      "hq": "Edmonton, AB",     "country": "Canada", "lat": 53.5461, "lng": -113.4938 },
-    { "name": "Canada Toronto Mission",       "hq": "Toronto, ON",      "country": "Canada", "lat": 43.6532, "lng":  -79.3832 },
-    { "name": "Canada Toronto West Mission",  "hq": "Mississauga, ON",  "country": "Canada", "lat": 43.5890, "lng":  -79.6441 },
-    { "name": "Canada Montreal Mission",      "hq": "Montreal, QC",     "country": "Canada", "lat": 45.5017, "lng":  -73.5673 },
-    { "name": "Canada Halifax Mission",       "hq": "Halifax, NS",      "country": "Canada", "lat": 44.6488, "lng":  -63.5752 },
-    { "name": "Canada Winnipeg Mission",      "hq": "Winnipeg, MB",     "country": "Canada", "lat": 49.8951, "lng":  -97.1384 }
+    { "name": "Canada Vancouver Mission",        "hq": "Vancouver, BC",    "country": "Canada",        "lat": 49.2827, "lng": -123.1207 },
+    { "name": "Canada Calgary Mission",          "hq": "Calgary, AB",      "country": "Canada",        "lat": 51.0447, "lng": -114.0719 },
+    { "name": "Canada Edmonton Mission",         "hq": "Edmonton, AB",     "country": "Canada",        "lat": 53.5461, "lng": -113.4938 },
+    { "name": "Canada Toronto Mission",          "hq": "Toronto, ON",      "country": "Canada",        "lat": 43.6532, "lng":  -79.3832 },
+    { "name": "Canada Toronto West Mission",     "hq": "Mississauga, ON",  "country": "Canada",        "lat": 43.5890, "lng":  -79.6441 },
+    { "name": "Canada Montreal Mission",         "hq": "Montreal, QC",     "country": "Canada",        "lat": 45.5017, "lng":  -73.5673 },
+    { "name": "Canada Halifax Mission",          "hq": "Halifax, NS",      "country": "Canada",        "lat": 44.6488, "lng":  -63.5752 },
+    { "name": "Canada Winnipeg Mission",         "hq": "Winnipeg, MB",     "country": "Canada",        "lat": 49.8951, "lng":  -97.1384 },
+    { "name": "Paris France Mission",            "hq": "Paris",            "country": "France",        "lat": 48.8566, "lng":    2.3522 },
+    { "name": "Hawaii Honolulu Mission",         "hq": "Honolulu, HI",     "country": "United States", "lat": 21.3099, "lng": -157.8581 },
+    { "name": "Brazil Cuiabá Mission",           "hq": "Cuiabá",           "country": "Brazil",        "lat": -15.6014, "lng": -56.0979 },
+    { "name": "New Jersey Morristown Mission",   "hq": "Morristown, NJ",   "country": "United States", "lat": 40.7968, "lng":  -74.4815 },
+    { "name": "Minnesota Minneapolis Mission",   "hq": "Minneapolis, MN",  "country": "United States", "lat": 44.9778, "lng":  -93.2650 }
   ]
 }
