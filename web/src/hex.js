@@ -549,11 +549,13 @@ function addEdgeText(svg, pathId, text, posClass) {
   tp.setAttribute('href', `#${pathId}`);
   tp.setAttribute('startOffset', '50%');
   tp.textContent = text;
-  // Fit long labels to the path so they don't clip at the edge of the hex side.
-  // Path length is ~57.74 viewBox units (one hex side); leave a small margin.
+  // Fit long labels to the path. Path is ~57.74 viewBox units; we squeeze to 46
+  // so glyph compression leaves comfortable margins at both ends — empirically
+  // textLength too close to the path length lets the renderer clip the leading
+  // character (the "MINNEAPOLIS" → "INNEAPOLIS" bug).
   if (text.length > 9) {
     tp.setAttribute('lengthAdjust', 'spacingAndGlyphs');
-    tp.setAttribute('textLength', '52');
+    tp.setAttribute('textLength', '46');
   }
   t.appendChild(tp);
   svg.appendChild(t);
@@ -562,7 +564,9 @@ function addEdgeText(svg, pathId, text, posClass) {
 function splitName(full) {
   const parts = full.split(/\s+/);
   const title = parts[0] || '';
-  const surname = parts.slice(1).join(' ');
+  // Only the LAST word is the surname — middle/first names appear on the
+  // closeup HUD card later, but the hex label has no room for them.
+  const surname = parts[parts.length - 1] || '';
   return { title, surname };
 }
 
