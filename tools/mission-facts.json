@@ -1,20 +1,42 @@
 {
   "_meta": {
-    "purpose": "One curated sentence per mission, shown on the closeup HUD card. Keyed by mission slug.",
+    "purpose": "One curated sentence per mission, shown on the closeup HUD card as the 'FIELD NOTE'. Keyed by mission slug. Slug is the mission name lower-cased with non-alnum runs collapsed to dashes (e.g. 'Brazil São Paulo South Mission' → 'brazil-sao-paulo-south-mission'). Sync will silently render a missing fact as 'no fact yet'; add an entry below to populate the kiosk on the next deploy.",
     "example": { "brazil-sao-paulo-south-mission": "Headquartered in the largest city in the Southern Hemisphere." }
   },
   "facts": {
     "brazil-sao-paulo-south-mission": "Headquartered in the largest city in the Southern Hemisphere.",
-    "japan-tokyo-mission": "Covers the largest metropolitan area on Earth — 37 million people.",
-    "england-london-mission": "Includes streets the Apostle Paul never walked but Brigham Young did.",
-    "mexico-mexico-city-mission": "Operates at over 7,300 ft elevation — bring lungs.",
-    "philippines-manila-mission": "More than 100 islands fall under its watch.",
-    "argentina-buenos-aires-mission": "Where tango was born and yerba mate is currency.",
-    "ghana-accra-mission": "On the Greenwich meridian — true zero longitude.",
-    "taiwan-taipei-mission": "Includes Taipei 101 — once the tallest building in the world.",
-    "california-los-angeles-mission": "Stretches from beaches to deserts to the Sierras.",
-    "germany-frankfurt-mission": "Sits on the Main River; home of Europe's largest book fair.",
-    "australia-sydney-mission": "The harbor bridge they cross daily turned 95 in 2025.",
-    "peru-lima-mission": "On the edge of the world's driest desert."
+    "brazil-sao-paulo-north-mission": "Covers the northern half of a 22-million-person megacity.",
+    "brazil-cuiaba-mission":         "Sits on the edge of the Pantanal — the world's largest tropical wetland.",
+    "japan-tokyo-mission":           "Covers the largest metropolitan area on Earth — 37 million people.",
+    "england-london-mission":        "Includes streets the Apostle Paul never walked but Brigham Young did.",
+    "mexico-mexico-city-mission":    "Operates at over 7,300 ft elevation — bring lungs.",
+    "philippines-manila-mission":    "More than 100 islands fall under its watch.",
+    "argentina-buenos-aires-mission":"Where tango was born and yerba mate is currency.",
+    "argentina-buenos-aires-west-mission":"The western half of the city of tango and yerba mate.",
+    "ghana-accra-mission":           "On the Greenwich meridian — true zero longitude.",
+    "taiwan-taipei-mission":         "Includes Taipei 101 — once the tallest building in the world.",
+    "california-los-angeles-mission":"Stretches from beaches to deserts to the Sierras.",
+    "germany-frankfurt-mission":     "Sits on the Main River; home of Europe's largest book fair.",
+    "australia-sydney-mission":      "The harbor bridge they cross daily turned 95 in 2025.",
+    "peru-lima-mission":             "On the edge of the world's driest desert.",
+
+    "arizona-phoenix-mission":       "Built in a desert that hits 110°F in July; named after the mythical firebird.",
+    "paris-france-mission":          "Headquartered a few metro stops from the Eiffel Tower.",
+    "hawaii-honolulu-mission":       "On an island chain 2,400 miles from the nearest continent.",
+    "texas-houston-mission":         "Energy capital of the world; NASA's mission control is here too.",
+    "new-jersey-morristown-mission": "Includes the fields where Washington's army camped through the brutal winter of 1780.",
+    "minnesota-minneapolis-mission": "Land of 10,000 lakes — actually closer to 11,842 if you count carefully.",
+
+    "canada-vancouver-mission":      "Ocean, mountains, and rainforest all in one city; rains about half the year.",
+    "canada-calgary-mission":        "Foothills of the Rockies; the Stampede every July fills the city with cowboys.",
+    "canada-edmonton-mission":       "Farthest-north big city on the continent — six months of long days, six of long nights.",
+    "canada-toronto-mission":        "More than half of Toronto's residents were born outside Canada.",
+    "canada-toronto-west-mission":   "Covers Mississauga and Hamilton — Lake Ontario on one side, farmland on the other.",
+    "canada-montreal-mission":       "French-speaking, river-locked, and named after a hill — 'Mont Royal'.",
+    "canada-halifax-mission":        "Atlantic-facing harbour that survived the largest pre-nuclear man-made explosion (1917).",
+    "canada-winnipeg-mission":       "Coldest big city in North America; The Forks have been a trading site for 6,000 years.",
+
+    "washington-vancouver-mission":  "Across the Columbia River from Portland — older than its more famous BC namesake.",
+    "mexico-chihuahua-mission":      "High desert mission in the state that's home to the Copper Canyon — deeper than the Grand."
   }
 }

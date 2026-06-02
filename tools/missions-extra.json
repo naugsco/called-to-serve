@@ -16,6 +16,8 @@
     { "name": "Hawaii Honolulu Mission",         "hq": "Honolulu, HI",     "country": "United States", "lat": 21.3099, "lng": -157.8581 },
     { "name": "Brazil Cuiabá Mission",           "hq": "Cuiabá",           "country": "Brazil",        "lat": -15.6014, "lng": -56.0979 },
     { "name": "New Jersey Morristown Mission",   "hq": "Morristown, NJ",   "country": "United States", "lat": 40.7968, "lng":  -74.4815 },
-    { "name": "Minnesota Minneapolis Mission",   "hq": "Minneapolis, MN",  "country": "United States", "lat": 44.9778, "lng":  -93.2650 }
+    { "name": "Minnesota Minneapolis Mission",   "hq": "Minneapolis, MN",  "country": "United States", "lat": 44.9778, "lng":  -93.2650 },
+    { "name": "Washington Vancouver Mission",    "hq": "Vancouver, WA",    "country": "United States", "lat": 45.6387, "lng": -122.6615 },
+    { "name": "Mexico Chihuahua Mission",        "hq": "Chihuahua",        "country": "Mexico",        "lat": 28.6353, "lng": -106.0889 }
   ]
 }
