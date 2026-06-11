@@ -29,6 +29,36 @@ body.dark {
   --silhouette-bg: linear-gradient(135deg, #2a3550 0%, #0e1730 100%);
 }
 
+/* COLOR mode — 3D shader globe on a deep-space background. Chrome inherits
+   the dark theme (body gets both .dark and .color). */
+body.color {
+  --bg: #0d1117;
+  --bg-rgb: 13, 17, 23;
+}
+
+/* ANTIQUE mode — hidden old-world map. Parchment, ink, botanical washes.
+   Activated by clicking the word SERVE in the brand. Overrides any theme. */
+body.antique {
+  --bg: #e9dfc6;
+  --bg-rgb: 233, 223, 198;
+  --ink: #41331d;
+  --ink-rgb: 65, 51, 29;
+  --ink-faint: rgba(65,51,29,0.6);
+  --ink-ghost: rgba(65,51,29,0.2);
+  --accent: #6b6a3f;
+  --accent-rgb: 107, 106, 63;
+  --gold: #a8762e;
+  --gold-rgb: 168, 118, 46;
+  --silhouette-bg: linear-gradient(135deg, #b9a87e 0%, #8a7351 100%);
+  /* Layered parchment: stains, foxing, vignette — all CSS, no image asset. */
+  background-image:
+    radial-gradient(ellipse 60% 50% at 18% 22%, rgba(166,138,86,0.16), transparent 70%),
+    radial-gradient(ellipse 45% 40% at 82% 75%, rgba(146,114,62,0.18), transparent 70%),
+    radial-gradient(ellipse 30% 25% at 65% 15%, rgba(180,156,108,0.12), transparent 70%),
+    radial-gradient(ellipse 120% 110% at 50% 50%, transparent 55%, rgba(110,86,46,0.25) 100%);
+}
+body.antique #globe3d-canvas { display: none; }
+
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0; height: 100%;
@@ -47,6 +77,8 @@ body { font-family: var(--font-sans); }
 #closeup-card { z-index: 4; }
 
 #globe-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+/* 3D shader globe (color mode) — sits beneath the 2D overlay canvas. */
+#globe3d-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 
 /* ---------- Top / bottom HUD bars ---------- */
 .topbar, .botbar {
@@ -72,6 +104,8 @@ body { font-family: var(--font-sans); }
   box-shadow: 0 0 12px rgba(var(--accent-rgb),0.6);
 }
 .topbar .brand { font-weight: 600; }
+/* Hidden antique-map trigger — deliberately zero visual affordance. */
+#antique-word { cursor: default; user-select: none; }
 .topbar .org, .botbar .status { opacity: 0.6; }
 .topbar .sep, .botbar .sep { margin: 0 1rem; opacity: 0.4; }
 
@@ -382,6 +416,63 @@ body { font-family: var(--font-sans); }
 .hex-tile.filled.active:not(.arriving) .hex-frame .edge-label.edge-bot-right {
   fill: var(--accent);
   font-size: 9.5px;
+}
+
+/* ---------- Info hexes ----------
+   Empty cells adjacent to the active tile light up with the missionary's
+   details after the slam. Frames brighten, glass tints accent, and the text
+   decodes in via JS glyph-scramble. */
+.hex-tile.info {
+  opacity: 1 !important;   /* overrides the distance fade on empties */
+  transition: opacity 0.45s ease var(--info-delay, 0ms);
+}
+.hex-tile.info .hex-frame .frame-base {
+  stroke: rgba(var(--accent-rgb), 0.85);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.35));
+}
+.hex-tile.info .hex-frame .glass-fill {
+  fill: url(#hex-glass);
+}
+.info-content {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 18% 16%;
+  text-align: center;
+  font-family: var(--font-mono);
+  color: var(--ink);
+  animation: info-pop 0.45s cubic-bezier(.2,.8,.2,1) var(--info-delay, 0ms) backwards;
+  pointer-events: none;
+}
+@keyframes info-pop {
+  from { opacity: 0; transform: scale(0.86); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.info-kicker {
+  font-size: clamp(0.55rem, 0.55vw, 0.85rem);
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+  min-height: 1.2em;
+  margin-bottom: 0.5em;
+}
+.info-kicker::after {
+  content: '';
+  display: block;
+  width: 2.2em; height: 1px;
+  margin: 0.45em auto 0;
+  background: rgba(var(--accent-rgb), 0.6);
+}
+.info-body {
+  font-size: clamp(0.6rem, 0.62vw, 0.95rem);
+  line-height: 1.45;
+  white-space: pre-line;
+  min-height: 2.5em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
 }
 
 /* ---------- Closeup card ---------- */

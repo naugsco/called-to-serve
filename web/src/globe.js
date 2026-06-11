@@ -17,6 +17,40 @@ const graticule = geoGraticule10();
 let canvas, ctx, dpr = 1;
 let last = performance.now();
 
+// Render styles:
+//   hud     — monochrome outline HUD (light/dark themes)
+//   color   — 3D shader globe (globe3d.js) renders beneath; this canvas only
+//             draws overlays (pins, halos, particles)
+//   antique — old-world parchment: botanical country washes, ink lines
+function renderStyle() {
+  const cl = document.body.classList;
+  if (cl.contains('antique')) return 'antique';
+  if (cl.contains('color')) return 'color';
+  return 'hud';
+}
+
+// Hook registered by main.js when color mode is active — keeps three.js out
+// of the bundle until someone actually switches to the color globe.
+let globe3dSync = null;
+export function setGlobe3DSync(fn) { globe3dSync = fn; }
+
+// Botanical washes for the antique style — muted tints from hand-colored
+// atlases. Assigned per-country by hashing the feature id so they're stable.
+const ANTIQUE_WASHES = [
+  'rgba(140, 150, 96, 0.40)',   // sage
+  'rgba(187, 142, 92, 0.38)',   // ochre
+  'rgba(168, 112, 100, 0.34)',  // dusty rose
+  'rgba(110, 130, 140, 0.32)',  // slate blue
+  'rgba(165, 150, 100, 0.38)',  // olive gold
+  'rgba(130, 110, 130, 0.28)',  // faded violet
+];
+function washFor(f) {
+  const id = String(f.id ?? f.properties?.name ?? '0');
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  return ANTIQUE_WASHES[Math.abs(h) % ANTIQUE_WASHES.length];
+}
+
 // CSS-var-driven colors. Re-read on theme change.
 const C = {
   ink: '#1a1a1a',
@@ -85,6 +119,27 @@ function draw(now) {
   // state.globe.rotateLat is stored as -lat (set in loop.centerOn). Pass it through directly.
   projection.scale(r).translate([cx, cy]).rotate([g.lambda, g.rotateLat]);
 
+  const style = renderStyle();
+
+  if (style === 'color') {
+    // The 3D shader globe (globe3d.js) draws the planet on its own canvas
+    // beneath this one — here we only render the overlays on top.
+    globe3dSync?.({
+      lambda: g.lambda, rotateLat: g.rotateLat,
+      scalePx: r, cx, cy, w, h, now,
+    });
+  } else if (style === 'antique') {
+    drawAntiqueBase(now, cx, cy, r, unit);
+  } else {
+    drawHudBase(now, cx, cy, r, unit);
+  }
+
+  drawMissions(now, unit);
+  drawParticles(now, unit);
+}
+
+function drawHudBase(now, cx, cy, r, unit) {
+  const g = state.globe;
   drawWhirl(now, cx, cy, r, unit);
 
   // Sphere fill (slight wash over background).
@@ -111,9 +166,55 @@ function draw(now) {
   ctx.lineWidth = 1.3 * unit;
   beginAndPath({ type: 'Sphere' });
   ctx.stroke();
+}
 
-  drawMissions(now, unit);
-  drawParticles(now, unit);
+// Old-world parchment atlas: sea wash, dashed graticule, per-country
+// botanical tints with ink coastlines, and a double-ring border like an
+// engraved plate.
+function drawAntiqueBase(now, cx, cy, r, unit) {
+  const g = state.globe;
+
+  // Sea: subtle aged wash, slightly deeper toward the limb (vignette).
+  const sea = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r);
+  sea.addColorStop(0, 'rgba(196, 184, 152, 0.30)');
+  sea.addColorStop(0.8, 'rgba(176, 160, 124, 0.42)');
+  sea.addColorStop(1, 'rgba(150, 132, 96, 0.55)');
+  ctx.fillStyle = sea;
+  beginAndPath({ type: 'Sphere' });
+  ctx.fill();
+
+  // Dashed ink graticule — engraved-plate look.
+  ctx.save();
+  ctx.setLineDash([3 * unit, 5 * unit]);
+  ctx.strokeStyle = `rgba(${C.inkRgb}, 0.34)`;
+  ctx.lineWidth = 0.55 * unit;
+  beginAndPath(graticule);
+  ctx.stroke();
+  ctx.restore();
+
+  // Countries: stable botanical washes + fine ink outline.
+  ctx.globalAlpha = g.landAlpha;
+  for (const f of land.features) {
+    ctx.fillStyle = washFor(f);
+    beginAndPath(f);
+    ctx.fill();
+  }
+  ctx.strokeStyle = `rgba(${C.inkRgb}, 0.75)`;
+  ctx.lineWidth = 0.7 * unit;
+  beginAndPath(land);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Double-ring sphere border, like an old engraved plate.
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = 1.6 * unit;
+  beginAndPath({ type: 'Sphere' });
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(${C.inkRgb}, 0.55)`;
+  ctx.lineWidth = 0.7 * unit;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 5 * unit, 0, Math.PI * 2);
+  ctx.stroke();
 }
 
 function beginAndPath(obj) {

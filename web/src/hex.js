@@ -9,6 +9,7 @@
 //   pitchY = 1.5  * R * GAP
 
 import gsap from 'gsap';
+import { fetchWeather } from './weather.js';
 
 const SQ3 = Math.sqrt(3);
 const svgNS = 'http://www.w3.org/2000/svg';
@@ -83,10 +84,13 @@ function ensureDefs() {
         <stop offset="50%"  stop-color="rgba(91,192,190,0.18)"/>
         <stop offset="100%" stop-color="rgba(91,192,190,0.04)"/>
       </linearGradient>
+      <!-- Active glass tint runs 30% lighter than the original (alphas ×0.7)
+           so the missionary's photo reads in natural color; the gold frame
+           and glow outside the photo carry the highlight instead. -->
       <linearGradient id="hex-glass-active" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="rgba(232,196,104,0.55)"/>
-        <stop offset="50%"  stop-color="rgba(232,196,104,0.22)"/>
-        <stop offset="100%" stop-color="rgba(232,196,104,0.06)"/>
+        <stop offset="0%"   stop-color="rgba(232,196,104,0.385)"/>
+        <stop offset="50%"  stop-color="rgba(232,196,104,0.154)"/>
+        <stop offset="100%" stop-color="rgba(232,196,104,0.042)"/>
       </linearGradient>
       <linearGradient id="hex-glass-empty" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%"   stop-color="rgba(91,192,190,0.16)"/>
@@ -608,6 +612,7 @@ export function showHex(v) {
   } else if (!v) {
     burstEl?.classList.remove('on');
     energySvg?.classList.remove('firing');
+    clearInfoHexes();
   }
 }
 
@@ -621,6 +626,11 @@ export function centerOnMissionary(slug, duration = 1.2) {
   // settles, then trigger both as a single blast.
   burstEl?.classList.remove('on');
   energySvg?.classList.remove('firing');
+  clearInfoHexes();
+  // Pre-fetch the weather during the flight so it's ready by the slam.
+  const wxPromise = (t.missionary.missionLat != null)
+    ? fetchWeather(t.missionary.missionLat, t.missionary.missionLng).catch(() => null)
+    : Promise.resolve(null);
   return new Promise(resolve => {
     gsap.to(fieldEl, {
       x: -t.x, y: -t.y, duration, ease: 'power3.inOut',
@@ -629,10 +639,100 @@ export function centerOnMissionary(slug, duration = 1.2) {
         t.root.classList.add('active');
         positionBurst(t);
         firePulse();
+        revealInfoHexes(t, wxPromise);
         resolve();
       },
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Info hexes — when the active tile slams down, the empty cells around it
+// light up with the missionary's details (bio / field note / live weather),
+// each decoding in with a glyph-scramble animation.
+
+let infoTiles = [];        // currently populated empty tiles
+let decodeRafIds = [];
+
+const DECODE_GLYPHS = '█▓▒░<>/\\|=+*#%&@01';
+
+function decodeInto(el, text, durMs = 900, delayMs = 0) {
+  const start = performance.now() + delayMs;
+  const len = text.length;
+  function frame(now) {
+    const t = (now - start) / durMs;
+    if (t < 0) { decodeRafIds.push(requestAnimationFrame(frame)); return; }
+    if (t >= 1) { el.textContent = text; return; }
+    const solved = Math.floor(t * len);
+    let out = text.slice(0, solved);
+    // A short "boiling" window of scramble glyphs ahead of the solve point.
+    const boil = Math.min(len - solved, 6);
+    for (let i = 0; i < boil; i++) {
+      out += DECODE_GLYPHS[(Math.random() * DECODE_GLYPHS.length) | 0];
+    }
+    el.textContent = out;
+    decodeRafIds.push(requestAnimationFrame(frame));
+  }
+  decodeRafIds.push(requestAnimationFrame(frame));
+}
+
+// Pointy-top axial neighbours.
+const NEIGHBOR_DIRS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
+
+function revealInfoHexes(activeTile, wxPromise) {
+  const m = activeTile.missionary;
+
+  // Preferred placement order: upper-right, lower-right, upper-left,
+  // lower-left, left, far-right LAST — the far-right neighbour can clip the
+  // viewport edge since the active tile sits right of screen centre.
+  const prefOrder = [[1, -1], [0, 1], [0, -1], [-1, 1], [-1, 0], [1, 0]];
+  const empties = [];
+  for (const [dq, dr] of prefOrder) {
+    const n = tiles.find(x => x.isEmpty && x.q === activeTile.q + dq && x.r === activeTile.r + dr);
+    if (n) empties.push(n);
+  }
+
+  const blocks = [];
+  if (m.bio) blocks.push({ kicker: 'BIO', text: m.bio });
+  if (m.fact) blocks.push({ kicker: 'FIELD NOTE', text: m.fact });
+  blocks.push({ kicker: 'WEATHER', text: '…', wx: true });
+
+  blocks.slice(0, empties.length).forEach((block, i) => {
+    const tile = empties[i];
+    const content = document.createElement('div');
+    content.className = 'info-content';
+    content.style.clipPath = HEX_CLIP_PATH;
+    const kicker = document.createElement('div');
+    kicker.className = 'info-kicker';
+    const body = document.createElement('div');
+    body.className = 'info-body';
+    content.append(kicker, body);
+    tile.root.appendChild(content);
+    tile.root.classList.add('info');
+    tile.root.style.setProperty('--info-delay', `${i * 180}ms`);
+    infoTiles.push(tile);
+
+    decodeInto(kicker, block.kicker, 350, i * 180);
+    if (block.wx) {
+      wxPromise.then(wx => {
+        if (!tile.root.classList.contains('info')) return; // cleared meanwhile
+        decodeInto(body, wx ? `${wx.c}°C / ${wx.f}°F\n${wx.desc}` : 'NO SIGNAL', 700, 0);
+      });
+    } else {
+      decodeInto(body, block.text, 900, i * 180 + 250);
+    }
+  });
+}
+
+export function clearInfoHexes() {
+  for (const id of decodeRafIds) cancelAnimationFrame(id);
+  decodeRafIds = [];
+  for (const tile of infoTiles) {
+    tile.root.classList.remove('info');
+    tile.root.style.removeProperty('--info-delay');
+    tile.root.querySelector('.info-content')?.remove();
+  }
+  infoTiles = [];
 }
 
 export function setPhotoColor(slug, amount) {

@@ -1,4 +1,10 @@
 // Master state machine — drives the loop end-to-end with GSAP tweens against state.
+//
+// Smoothness rules learned the hard way:
+//   • NEVER hard-set state.globe.{omega, rotateLat, scale, centerX} between
+//     phases — always tween. Hard sets read as visible "pops" on the kiosk.
+//   • outro() must return every globe parameter to introSpin()'s starting
+//     values so the loop seam is invisible.
 
 import gsap from 'gsap';
 import { state } from './state.js';
@@ -15,6 +21,11 @@ function tweenTo(target, vars) {
   });
 }
 
+// Ease rotation speed instead of stepping it — kills the "rotation pop".
+function tweenOmega(target, dur = 1.2) {
+  return tweenTo(state.globe, { omega: target, duration: dur, ease: 'power2.inOut' });
+}
+
 function clearMissionHighlights() {
   for (const entry of state.missions.byMission.values()) {
     entry.highlighted = false;
@@ -28,13 +39,11 @@ async function centerOn(lng, lat, dur, ease = 'power2.inOut') {
   const target = -lng;
   const cur = state.globe.lambda;
   const delta = ((target - cur + 540) % 360) - 180; // shortest path
-  const wasOmega = state.globe.omega;
-  state.globe.omega = 0;
+  state.globe.omega = 0; // tick stops adding; the lambda tween takes over seamlessly
   await Promise.all([
     tweenTo(state.globe, { lambda: cur + delta, duration: dur, ease }),
     tweenTo(state.globe, { rotateLat: -lat, duration: dur, ease }),
   ]);
-  return wasOmega;
 }
 
 export async function runLoop({ missionaries }) {
@@ -59,6 +68,9 @@ export async function runLoop({ missionaries }) {
 }
 
 async function introSpin() {
+  // outro() already tweened scale/centerX/rotateLat/omega back to these
+  // values — the sets below are no-op safety nets for the FIRST iteration
+  // (or a mid-loop hot reload), not transitions.
   state.globe.omega = SPEED.baseOmega;
   state.globe.scale = 1;
   state.globe.centerX = 0.5;
@@ -72,16 +84,14 @@ async function introSpin() {
 async function vancouverBurst(missionaries) {
   // Center Vancouver dead-center, stop spinning, then launch particles outward.
   await centerOn(VANCOUVER.lng, VANCOUVER.lat, 2.0);
-  // Hold Vancouver centered while particles fly.
-  state.globe.omega = 0;
   for (let i = 0; i < missionaries.length; i++) {
     const m = missionaries[i];
     if (m.missionLat == null) continue;
     setTimeout(() => spawnParticleToMission(m), i * 220);
   }
   await wait(T.vancouverBurst);
-  // After the burst, resume spin.
-  state.globe.omega = SPEED.baseOmega;
+  // Ease back up to cruise speed rather than snapping.
+  await tweenOmega(SPEED.baseOmega, 1.4);
 }
 
 async function macroTour() {
@@ -89,7 +99,6 @@ async function macroTour() {
 }
 
 async function closeup(m) {
-  state.globe.omega = 0;
   state.missions.activeSlug = m.missionSlug;
   await Promise.all([
     centerOn(m.missionLng, m.missionLat, T.closeupZoomIn, 'power3.inOut'),
@@ -100,7 +109,7 @@ async function closeup(m) {
   hideCloseup();
   await tweenTo(state.globe, { scale: 1, duration: T.closeupZoomOut, ease: 'power2.inOut' });
   state.missions.activeSlug = null;
-  state.globe.omega = SPEED.baseOmega;
+  await tweenOmega(SPEED.baseOmega, 1.0);
 }
 
 async function globeToLeft() {
@@ -120,14 +129,13 @@ async function hexMaterialize() {
   await wait(T.hexMaterialize * 0.35);
   hex.showNames(true);
   await wait(T.hexMaterialize * 0.2);
-  state.globe.omega = SPEED.slowOmega;
+  await tweenOmega(SPEED.slowOmega, 1.0);
 }
 
 async function hexHighlight(m) {
   // Translate the whole hex field so this missionary's tile lands at the field center.
   // Simultaneously, rotate the globe so the missionary's mission is centered on the visible disk.
   state.missions.activeSlug = m.missionSlug;
-  state.globe.omega = 0;
   await Promise.all([
     hex.centerOnMissionary(m.slug, 1.2),
     centerOn(m.missionLng, m.missionLat, 1.2, 'power2.inOut'),
@@ -144,7 +152,7 @@ async function hexHighlight(m) {
     v: 0, duration: 0.6, ease: 'power2.in',
     onUpdate() { hex.setPhotoColor(m.slug, this.targets()[0].v); },
   });
-  state.globe.omega = SPEED.slowOmega;
+  await tweenOmega(SPEED.slowOmega, 0.8);
 }
 
 async function outro() {
@@ -156,6 +164,9 @@ async function outro() {
   hex.showFrames(false);
   await Promise.all([
     tweenTo(state.globe, { centerX: 0.5, scale: 1, duration: T.outro * 0.7, ease: 'power2.inOut' }),
+    // rotateLat back to equator-view here — otherwise introSpin()'s hard
+    // reset visibly snapped the globe from the last mission's latitude.
+    tweenTo(state.globe, { rotateLat: 0, duration: T.outro * 0.7, ease: 'power2.inOut' }),
     tweenTo(state.globe, { omega: SPEED.baseOmega, duration: T.outro * 0.5, ease: 'power2.inOut' }),
   ]);
   hex.showHex(false);

@@ -16,6 +16,7 @@
     "d3-geo": "^3.1.1",
     "d3-interpolate": "^3.0.1",
     "gsap": "^3.15.0",
+    "three": "^0.184.0",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2"
   }
