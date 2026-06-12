@@ -9,8 +9,9 @@
 //     overlay (mission pins, halos, particles) lines up exactly on top.
 //   • No drag interaction, no tweaks panel — rotation is driven each frame
 //     from state.globe (same lambda/rotateLat the d3 projection uses).
-//   • REAL day/night: uLight follows the live subsolar point, so the
-//     terminator on screen matches where it actually is right now.
+//   • Lighting is a fixed 3/4 cinematic key locked to the camera (set in
+//     syncGlobe3D) — the screen centre is always fully lit, so shading
+//     never animates as the globe rotates or zooms.
 //
 // three.js is imported lazily by main.js only when color mode activates.
 
@@ -33,7 +34,6 @@ const TWEAKS = {
 let renderer, scene, camera;
 let tiltGroup, pitchPivot, yawPivot;
 let globeUniforms, atmoUniforms, wireSparseUniforms, wireDenseUniforms;
-let sunLight, sunAnchor;
 let canvasEl = null;
 let disposed = false;
 
@@ -47,17 +47,6 @@ function latLonToPos(lat, lon, radius = 1.0) {
     Math.sin(phi) * radius,
     -Math.cos(phi) * Math.sin(lam) * radius,
   );
-}
-
-// Subsolar point right now. Declination via the standard approximation;
-// longitude from UTC time (equation-of-time omitted — ±4° is invisible here).
-export function subsolarPoint(date = new Date()) {
-  const start = Date.UTC(date.getUTCFullYear(), 0, 0);
-  const dayOfYear = (date.getTime() - start) / 86400000;
-  const decl = -23.44 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10));
-  const utcHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
-  const lng = (12 - utcHours) * 15; // sun overhead at noon UTC on the prime meridian
-  return { lat: decl, lng: ((lng + 540) % 360) - 180 };
 }
 
 // ---------------------------------------------------------------- bakes
@@ -455,7 +444,11 @@ const fragmentShader = /* glsl */ `
 
     vec3 N = normalize(vNormalW);
     vec3 L = normalize(uLight);
-    vec3 V = normalize(cameraPosition - vPosL);
+    // Orthographic camera looking down -Z: the view direction is CONSTANT.
+    // Never derive V from cameraPosition here — the globe's world coords
+    // change with every zoom/translate (pixel-space scene), which made the
+    // fresnel rim and specular visibly drift during zooms.
+    vec3 V = vec3(0.0, 0.0, 1.0);
 
     float ndl  = dot(N, L);
     float wrap = ndl * 0.5 + 0.5;
@@ -468,17 +461,17 @@ const fragmentShader = /* glsl */ `
 
     vec3 lit = color * (ambient + keyCol * diff * 0.95);
 
-    // No day/night terminator — light comes from the viewer (set in JS), so
-    // the face you're looking at always shows its true colours. Only a gentle
-    // limb shade remains for roundness; the disk never darkens in the middle
-    // and nothing "animates" in brightness as the globe rotates or zooms.
-    float term = smoothstep(-0.7, 0.15, ndl);
-    color = mix(color * 0.55, lit, term);
+    // Soft shadow falloff toward the away side of the key. The key is fixed
+    // at a 3/4 front position relative to the camera, so the screen centre
+    // is always fully lit and this shading never moves on screen.
+    float term = smoothstep(-0.28, 0.32, ndl);
+    vec3 shadowTint = color * 0.32 + vec3(0.02, 0.025, 0.045);
+    color = mix(shadowTint, lit, term);
 
     if (vLand < 0.5) {
       vec3 H = normalize(L + V);
       float spec = pow(max(dot(N, H), 0.0), 64.0);
-      color += keyCol * spec * 0.40 * term;
+      color += keyCol * spec * 0.55 * term;
     }
 
     float fres = pow(1.0 - max(dot(N, V), 0.0), 2.6);
@@ -574,7 +567,8 @@ const foliageFrag = /* glsl */ `
   void main(){
     vec3 N = normalize(vWN);
     vec3 L = normalize(uLight);
-    vec3 V = normalize(cameraPosition - vWP);
+    // Constant ortho view dir — see the globe fragment shader.
+    vec3 V = vec3(0.0, 0.0, 1.0);
     float wrap = dot(N, L) * 0.5 + 0.5;
     float diff = pow(clamp(wrap, 0.0, 1.0), 1.5);
     float sky  = N.y * 0.5 + 0.5;
@@ -704,16 +698,8 @@ export function mountGlobe3D(container) {
   yawPivot.add(makeWireMesh(10, 1.0018, wireFragSparse, 1, wireSparseUniforms));
   yawPivot.add(makeWireMesh(28, 1.0030, wireFragDense, 2, wireDenseUniforms));
 
-  // Sun + ambient.
-  sunLight = new THREE.DirectionalLight(0xfff3e0, 1.05);
-  sunLight.position.copy(globeUniforms.uLight.value).multiplyScalar(8);
-  scene.add(sunLight);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-
-  // Sun anchor inside the rotating frame: placed at the live subsolar point,
-  // its WORLD direction then gives us the true light vector after rotation.
-  sunAnchor = new THREE.Object3D();
-  yawPivot.add(sunAnchor);
+  // No scene lights — every material here is a ShaderMaterial driven by the
+  // uLight uniform (fixed 3/4 key, set in syncGlobe3D).
 
   // Atmosphere shell.
   atmoUniforms = { uLight: globeUniforms.uLight, uAtmoAmp: { value: TWEAKS.atmoIntensity } };
@@ -736,7 +722,9 @@ export function mountGlobe3D(container) {
       uniform vec3 uLight;
       uniform float uAtmoAmp;
       void main(){
-        vec3 V = normalize(cameraPosition - vP);
+        // Constant ortho view dir — deriving V from cameraPosition made the
+        // atmosphere rim shift during zooms (pixel-space scene).
+        vec3 V = vec3(0.0, 0.0, 1.0);
         float rim = pow(1.0 - abs(dot(vN, V)), 3.0);
         vec3 col = mix(vec3(0.30, 0.55, 0.90), vec3(0.55, 0.75, 1.0), rim);
         float lit = clamp(dot(normalize(vN), normalize(uLight)) * 0.5 + 0.6, 0.0, 1.0);
@@ -882,11 +870,12 @@ export function syncGlobe3D({ lambda, rotateLat, scalePx, cx, cy, w, h, now }) {
   yawPivot.rotation.y = THREE.MathUtils.degToRad(lambda - 90);
   pitchPivot.rotation.x = THREE.MathUtils.degToRad(-rotateLat);
 
-  // Fixed, viewer-facing light (world space; camera sits on +Z). The lit face
-  // always points at us, so the globe shows its colours evenly — no day/night
-  // terminator, no brightness shift as it spins or zooms. Slight up-left bias
-  // gives gentle terrain relief and limb darkening.
-  globeUniforms.uLight.value.set(-0.35, 0.45, 1.0).normalize();
+  // Classic 3/4 cinematic key, FIXED relative to the camera: up and to the
+  // right, three-quarters frontal — the standalone's Pixar setup. Because the
+  // camera never moves, the light pattern is locked to the screen: the centre
+  // of the disk is always fully lit and the soft shadow always hugs the
+  // lower-left limb. Terrain rotates underneath it; shading never animates.
+  globeUniforms.uLight.value.set(0.55, 0.7, 0.9).normalize();
 
   globeUniforms.uTime.value = now / 1000;
   renderer.render(scene, camera);
@@ -902,5 +891,4 @@ export function disposeGlobe3D() {
   renderer = scene = camera = canvasEl = null;
   tiltGroup = pitchPivot = yawPivot = null;
   globeUniforms = atmoUniforms = wireSparseUniforms = wireDenseUniforms = null;
-  sunLight = sunAnchor = null;
 }
