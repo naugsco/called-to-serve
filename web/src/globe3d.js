@@ -468,14 +468,17 @@ const fragmentShader = /* glsl */ `
 
     vec3 lit = color * (ambient + keyCol * diff * 0.95);
 
-    float term = smoothstep(-0.28, 0.32, ndl);
-    vec3 nightTint = color * 0.15 + vec3(0.03, 0.035, 0.06);
-    color = mix(nightTint, lit, term);
+    // No day/night terminator — light comes from the viewer (set in JS), so
+    // the face you're looking at always shows its true colours. Only a gentle
+    // limb shade remains for roundness; the disk never darkens in the middle
+    // and nothing "animates" in brightness as the globe rotates or zooms.
+    float term = smoothstep(-0.7, 0.15, ndl);
+    color = mix(color * 0.55, lit, term);
 
     if (vLand < 0.5) {
       vec3 H = normalize(L + V);
       float spec = pow(max(dot(N, H), 0.0), 64.0);
-      color += keyCol * spec * 0.55 * term;
+      color += keyCol * spec * 0.40 * term;
     }
 
     float fres = pow(1.0 - max(dot(N, V), 0.0), 2.6);
@@ -858,7 +861,6 @@ function buildFoliage(landCanvas) {
 //   pitch = -rotateLat (rotateLat is stored as -lat)
 // Globe group scaled to the projection's pixel radius and positioned at its
 // pixel translate, in a pixel-unit ortho frustum.
-let lastSunUpdate = 0;
 export function syncGlobe3D({ lambda, rotateLat, scalePx, cx, cy, w, h, now }) {
   if (!renderer || disposed) return;
 
@@ -880,17 +882,11 @@ export function syncGlobe3D({ lambda, rotateLat, scalePx, cx, cy, w, h, now }) {
   yawPivot.rotation.y = THREE.MathUtils.degToRad(lambda - 90);
   pitchPivot.rotation.x = THREE.MathUtils.degToRad(-rotateLat);
 
-  // Real day/night — update the sun direction once a minute.
-  if (now - lastSunUpdate > 60_000 || lastSunUpdate === 0) {
-    lastSunUpdate = now;
-    const sub = subsolarPoint();
-    sunAnchor.position.copy(latLonToPos(sub.lat, sub.lng, 2));
-  }
-  const sunWorld = new THREE.Vector3();
-  sunAnchor.getWorldPosition(sunWorld);
-  sunWorld.sub(tiltGroup.getWorldPosition(new THREE.Vector3())).normalize();
-  globeUniforms.uLight.value.copy(sunWorld);
-  sunLight.position.copy(sunWorld).multiplyScalar(8);
+  // Fixed, viewer-facing light (world space; camera sits on +Z). The lit face
+  // always points at us, so the globe shows its colours evenly — no day/night
+  // terminator, no brightness shift as it spins or zooms. Slight up-left bias
+  // gives gentle terrain relief and limb darkening.
+  globeUniforms.uLight.value.set(-0.35, 0.45, 1.0).normalize();
 
   globeUniforms.uTime.value = now / 1000;
   renderer.render(scene, camera);
