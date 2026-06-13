@@ -15,6 +15,19 @@ import { showCloseup, hideCloseup } from './card.js';
 
 const wait = (s) => new Promise(r => setTimeout(r, s * 1000));
 
+// Skippable hold — like wait(), but advance() resolves it early so a click on
+// FEED jumps straight to the next missionary. Only one hold is ever pending.
+let skipHold = null;
+function hold(s) {
+  return new Promise(resolve => {
+    const done = () => { clearTimeout(timer); skipHold = null; resolve(); };
+    const timer = setTimeout(done, s * 1000);
+    skipHold = done;
+  });
+}
+// Wired to the FEED control in the bottom bar (see main.js).
+export function advance() { skipHold?.(); }
+
 function tweenTo(target, vars) {
   return new Promise(resolve => {
     gsap.to(target, { ...vars, onComplete: resolve });
@@ -105,7 +118,7 @@ async function closeup(m) {
     tweenTo(state.globe, { scale: VIEW.globeScaleZoom, duration: T.closeupZoomIn, ease: 'power3.inOut' }),
   ]);
   await showCloseup(m);
-  await wait(T.closeupHold);
+  await hold(T.closeupHold);   // FEED skips to the next mission
   hideCloseup();
   await tweenTo(state.globe, { scale: 1, duration: T.closeupZoomOut, ease: 'power2.inOut' });
   state.missions.activeSlug = null;
@@ -146,7 +159,7 @@ async function hexHighlight(m) {
     onUpdate() { hex.setPhotoColor(m.slug, this.targets()[0].v); },
   });
   if (m.photos && m.photos.length > 1) hex.startCarousel(m.slug);
-  await wait(T.hexHighlightHold);
+  await hold(T.hexHighlightHold);   // FEED skips to the next mission
   hex.stopCarousel();
   await tweenTo({ v: 1 }, {
     v: 0, duration: 0.6, ease: 'power2.in',

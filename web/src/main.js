@@ -3,7 +3,7 @@
 import { state } from './state.js';
 import { mountGlobe, refreshColors, setGlobe3DSync } from './globe.js';
 import { mountHex } from './hex.js';
-import { runLoop } from './loop.js';
+import { runLoop, advance } from './loop.js';
 
 const app = document.getElementById('app');
 
@@ -82,6 +82,11 @@ function initTheme() {
       applyState();
     });
   }
+
+  // FEED acts as a manual advance — skip the current hold and jump to the next
+  // missionary. Handy for testing and for stepping through on demand.
+  const feed = document.getElementById('feed-advance');
+  if (feed) feed.addEventListener('click', () => advance());
 }
 
 async function main() {

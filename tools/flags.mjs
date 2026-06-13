@@ -1,56 +1,35 @@
-// Flag backend — turns a mission's country into a cached, hexagon-shaped
-// flag SVG under web/public/flags/<code>.svg, and stamps `countryCode` +
+// Flag backend — looks up a mission's country flag, caches it once per
+// country under web/public/flags/<code>.svg, and stamps `countryCode` +
 // `flag` onto each missionary in the manifest.
 //
 // Cache-by-country: a flag is downloaded once per ISO code and reused for
 // every missionary in that country and across runs. When a missionary is
-// added whose country we've never seen, decorateWithFlags downloads and
-// builds the new hex flag automatically (and warns loudly if the country
-// name isn't in country-codes.json yet).
+// added whose country we've never seen, decorateWithFlags downloads it
+// automatically (and warns loudly if the country name isn't in
+// country-codes.json yet).
 //
-// The asset is a self-contained SVG: the real flag (fetched from flagcdn)
-// is embedded as a base64 data-URI and clipped to the pointy-top hexagon,
-// so it needs no network at runtime and drops straight into a hex tile.
+// We store the RAW flag SVG (self-contained, no runtime network). The hex
+// SHAPE is applied by the tile at render time via clip-path + object-fit:
+// cover — exactly how photos are rendered — so the flag keeps its aspect
+// ratio and never stretches. (Embedding the flag inside a hex-clipped SVG
+// via a nested <image> looked fine in some renderers and stretched in
+// others; clip-path on a plain <img> is rock-solid.)
 
 import { mkdir, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODES = JSON.parse(readFileSync(resolve(__dirname, 'country-codes.json'), 'utf8'));
-
-// Pointy-top hex geometry — must match web/src/hex.js (VBW=100).
-const VBW = 100;
-const VBH = 200 / Math.sqrt(3); // ≈115.470
-const HEX_POINTS = [
-  [50, 0], [100, VBH * 0.25], [100, VBH * 0.75],
-  [50, VBH], [0, VBH * 0.75], [0, VBH * 0.25],
-].map(p => `${p[0].toFixed(3)},${p[1].toFixed(3)}`).join(' ');
 
 export function countryCode(countryName) {
   if (!countryName) return null;
   return CODES[countryName] ?? CODES[countryName.trim()] ?? null;
 }
 
-// Build the hex-clipped, self-contained SVG for one flag.
-function hexFlagSvg(flagSvgText) {
-  const b64 = Buffer.from(flagSvgText, 'utf8').toString('base64');
-  // `slice` covers the hex (flags are wider than the tall hex, so the centre
-  // band shows — which is where most flags carry their emblem).
-  return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VBW} ${VBH.toFixed(3)}">`,
-    `<defs><clipPath id="hx"><polygon points="${HEX_POINTS}"/></clipPath></defs>`,
-    `<image clip-path="url(#hx)" x="0" y="0" width="${VBW}" height="${VBH.toFixed(3)}"`,
-    ` preserveAspectRatio="xMidYMid slice"`,
-    ` href="data:image/svg+xml;base64,${b64}"/>`,
-    `</svg>`,
-  ].join('');
-}
-
-// Ensure web/public/flags/<code>.svg exists; download + build it if not.
-// Returns the public-relative path, or null if the code couldn't be resolved.
+// Ensure web/public/flags/<code>.svg exists; download it if not.
+// Returns the public-relative path.
 async function ensureFlagHex(code, flagsDir, { log = console } = {}) {
   const outPath = resolve(flagsDir, `${code}.svg`);
   const rel = `flags/${code}.svg`;
@@ -61,8 +40,8 @@ async function ensureFlagHex(code, flagsDir, { log = console } = {}) {
   if (!res.ok) throw new Error(`flag download for "${code}" failed: HTTP ${res.status}`);
   const flagSvg = await res.text();
   await mkdir(flagsDir, { recursive: true });
-  await writeFile(outPath, hexFlagSvg(flagSvg));
-  log.log?.(`[flags] built ${rel}`);
+  await writeFile(outPath, flagSvg);
+  log.log?.(`[flags] fetched ${rel}`);
   return rel;
 }
 

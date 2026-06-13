@@ -47,6 +47,11 @@ let energySvg = null;
 let energyVertices = new Map();  // vkey -> { x, y, key, edgeKeys[], sumX, sumY, count }
 let energyEdges = new Map();     // edgeKey -> { v1Key, v2Key, line }
 let tileCornerKeys = new Map();  // tile -> [6 vertex keys]
+// Cluster outline: the running gold highlight traced around the combined
+// perimeter of the active missionary's hexes (photo + info hexes), treated
+// as one shape. Replaces the old per-hex gold borders.
+let clusterSvg = null;
+let clusterAnims = [];
 let tiles = [];
 let missionaryTiles = [];
 let R = 80, pitchX, pitchY;
@@ -638,6 +643,135 @@ function revealInfoHexes(activeTile, wxPromise) {
   blocks.push({ kicker: 'WEATHER', wx: true });
   blocks.slice(0, empties.length).forEach((block, i) =>
     addInfoBlock(empties[i], block, i, wxPromise));
+
+  // Trace the running gold highlight around the whole cluster's outer edge.
+  buildClusterHighlight(activeTile);
+}
+
+// ---------------------------------------------------------------------------
+// Cluster perimeter highlight. The active missionary's hexes (photo + info)
+// form one shape; we light only its OUTER edge with a running gold pulse and
+// drop every per-hex highlight (gold cast, active border, info accent). The
+// outline is traced at radius R*GAP so the corners of adjacent rendered hexes
+// coincide into a clean continuous polygon hugging just outside the cluster.
+
+// Pointy-top axial neighbour dirs → the two hex-corner indices of the edge
+// facing that neighbour. Corner i sits at angle (-90 + 60*i)°.
+const CLUSTER_DIRS = [
+  { d: [1, 0],   e: [1, 2] }, // right
+  { d: [0, 1],   e: [2, 3] }, // lower-right
+  { d: [-1, 1],  e: [3, 4] }, // lower-left
+  { d: [-1, 0],  e: [4, 5] }, // left
+  { d: [0, -1],  e: [5, 0] }, // upper-left
+  { d: [1, -1],  e: [0, 1] }, // upper-right
+];
+
+function hexCorner(cx, cy, i, rad) {
+  const a = (-90 + 60 * i) * Math.PI / 180;
+  return [cx + rad * Math.cos(a), cy + rad * Math.sin(a)];
+}
+
+function buildClusterHighlight(activeTile) {
+  clearClusterHighlight();
+  const cluster = [activeTile, ...infoTiles];
+  const inSet = new Set(cluster.map(t => `${t.q},${t.r}`));
+  const rad = R * GAP;
+
+  // Collect outer (boundary) edges: a hex side whose neighbour isn't in the
+  // cluster. Interior (shared) edges are skipped entirely.
+  const edges = [];
+  for (const t of cluster) {
+    for (const { d, e } of CLUSTER_DIRS) {
+      if (inSet.has(`${t.q + d[0]},${t.r + d[1]}`)) continue;
+      edges.push([hexCorner(t.x, t.y, e[0], rad), hexCorner(t.x, t.y, e[1], rad)]);
+    }
+  }
+  if (!edges.length) return;
+
+  clusterSvg = document.createElementNS(svgNS, 'svg');
+  clusterSvg.setAttribute('class', 'cluster-outline');
+  clusterSvg.style.cssText =
+    'position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none;';
+
+  for (const loop of chainLoops(edges)) {
+    const d = loop.map((p, i) =>
+      `${i ? 'L' : 'M'}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(' ') + ' Z';
+    const base = document.createElementNS(svgNS, 'path');
+    base.setAttribute('class', 'cl-base');
+    base.setAttribute('d', d);
+    const run = document.createElementNS(svgNS, 'path');
+    run.setAttribute('class', 'cl-run');
+    run.setAttribute('d', d);
+    clusterSvg.append(base, run);
+
+    // One bright comet circulating the loop: dash on for `dash`, off for the
+    // rest, animated once around per cycle (seamless — period == path length).
+    const len = base.getTotalLength?.() || pathLenFallback(loop);
+    const dash = Math.max(len * 0.16, 160);
+    run.style.strokeDasharray = `${dash.toFixed(1)} ${(len - dash).toFixed(1)}`;
+    clusterAnims.push(run.animate(
+      [{ strokeDashoffset: 0 }, { strokeDashoffset: -len }],
+      { duration: Math.max(2000, len * 1.6), iterations: Infinity, easing: 'linear' },
+    ));
+  }
+
+  fieldEl.appendChild(clusterSvg);
+  containerEl.classList.add('cluster-on');
+}
+
+function pathLenFallback(loop) {
+  let L = 0;
+  for (let i = 0; i < loop.length; i++) {
+    const a = loop[i], b = loop[(i + 1) % loop.length];
+    L += Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
+  return L;
+}
+
+// Chain boundary edges into ordered closed loop(s). Shared corners coincide
+// (radius R*GAP), so each vertex has degree 2 and the walk is unambiguous.
+function chainLoops(edges) {
+  const key = p => `${Math.round(p[0] * 2)},${Math.round(p[1] * 2)}`;
+  const adj = new Map();
+  const pts = new Map();
+  const addAdj = (k, v) => { (adj.get(k) ?? adj.set(k, []).get(k)).push(v); };
+  for (const [a, b] of edges) {
+    const ka = key(a), kb = key(b);
+    pts.set(ka, a); pts.set(kb, b);
+    addAdj(ka, kb); addAdj(kb, ka);
+  }
+  const eKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+  const usedEdge = new Set();
+  const seen = new Set();
+  const loops = [];
+  for (const start of adj.keys()) {
+    if (seen.has(start)) continue;
+    const loop = [];
+    let cur = start, prev = null, guard = 0;
+    do {
+      loop.push(pts.get(cur));
+      seen.add(cur);
+      let nxt = null;
+      for (const cand of adj.get(cur)) {
+        if (cand === prev) continue;
+        if (usedEdge.has(eKey(cur, cand))) continue;
+        nxt = cand; break;
+      }
+      if (nxt == null) break;
+      usedEdge.add(eKey(cur, nxt));
+      prev = cur; cur = nxt;
+    } while (cur !== start && guard++ < 2000);
+    if (loop.length >= 3) loops.push(loop);
+  }
+  return loops;
+}
+
+function clearClusterHighlight() {
+  for (const a of clusterAnims) a.cancel?.();
+  clusterAnims = [];
+  clusterSvg?.remove();
+  clusterSvg = null;
+  containerEl?.classList.remove('cluster-on');
 }
 
 // Empty tile → decoded kicker + body (bio / field note / weather).
@@ -711,6 +845,7 @@ export function clearInfoHexes() {
     tile.root.querySelector('.hex-flag')?.remove();
   }
   infoTiles = [];
+  clearClusterHighlight();
 }
 
 export function setPhotoColor(slug, amount) {
