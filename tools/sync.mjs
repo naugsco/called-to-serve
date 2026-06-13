@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { portraitSvg } from './portrait.mjs';
 import { readSubmissions, readRoster } from './sheets.mjs';
 import { downloadPhoto, selectBestPhoto } from './photos.mjs';
+import { decorateWithFlags } from './flags.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -212,6 +213,19 @@ for (const m of missionaries) {
 }
 // Drop the underscored field from rows that had no photos.
 for (const m of missionaries) delete m._sourcePhotos;
+
+// Country flags: cached per country under web/public/flags/, never wiped.
+// Adds countryCode + flag to each missionary; warns about any country we
+// don't have an ISO code for yet.
+const { missing, failed } = await decorateWithFlags(missionaries, PUBLIC_DIR);
+if (missing.length) {
+  console.warn(`\n[sync] WARN: no flag for ${missing.length} country/countries — add to tools/country-codes.json:`);
+  for (const c of missing) console.warn(`  • "${c}": "xx"   (ISO 3166-1 alpha-2, lowercase)`);
+  console.warn('');
+}
+if (failed.length) {
+  console.warn(`[sync] WARN: flag download failed for: ${failed.join(', ')} (flagcdn unreachable?) — those tiles show no flag.\n`);
+}
 
 await writeFile(OUT_JSON, JSON.stringify(manifest, null, 2) + '\n');
 console.log(`[sync] wrote ${missionaries.length} missionaries to ${OUT_JSON}`);

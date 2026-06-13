@@ -381,42 +381,8 @@ body { font-family: var(--font-sans); }
   50%      { filter: drop-shadow(0 0 12px rgba(var(--gold-rgb), 0.6));  }
 }
 
-/* Edge labels — SVG text drawn along paths just outside the hex border.
-   Top two edges carry name (title / surname); bottom two carry the mission
-   split country / city. Font size is in viewBox units. */
-.hex-frame .edge-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  fill: rgba(var(--ink-rgb), 0.85);
-  opacity: 0;
-  transition: opacity 0.5s ease, fill 0.4s ease;
-  paint-order: stroke fill;
-  stroke: rgba(0, 0, 0, 0.75);
-  stroke-width: 0.55px;
-  stroke-linejoin: round;
-}
-#hex-root.show-names .hex-tile.filled .hex-frame .edge-label { opacity: 0.88; }
-.hex-tile.filled.active:not(.arriving) .hex-frame .edge-label {
-  fill: var(--gold);
-  opacity: 1;
-  font-size: 11px;
-}
-.hex-frame .edge-label.edge-bot-left,
-.hex-frame .edge-label.edge-bot-right {
-  font-size: 8.5px;
-  letter-spacing: 0.4px;
-  fill: rgba(var(--accent-rgb), 0.95);
-  /* Hang text DOWN from the path so it sits entirely below the hex edge
-     instead of straddling it. */
-  dominant-baseline: hanging;
-}
-.hex-tile.filled.active:not(.arriving) .hex-frame .edge-label.edge-bot-left,
-.hex-tile.filled.active:not(.arriving) .hex-frame .edge-label.edge-bot-right {
-  fill: var(--accent);
-  font-size: 9.5px;
-}
+/* Name + mission used to be drawn around the tile edges; they now live in the
+   identity info hex to the left of the photo (see below). */
 
 /* ---------- Info hexes ----------
    Empty cells adjacent to the active tile light up with the missionary's
@@ -473,6 +439,48 @@ body { font-family: var(--font-sans); }
   display: -webkit-box;
   -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
+}
+
+/* Identity hex (left of the photo): name large + bold over the mission. */
+.info-content.identity { padding: 16% 12%; justify-content: center; }
+.id-name {
+  font-size: clamp(0.8rem, 1.05vw, 1.55rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.12;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.id-name::after {
+  content: '';
+  display: block;
+  width: 2.6em; height: 2px;
+  margin: 0.5em auto;
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(var(--gold-rgb), 0.6);
+}
+.id-mission {
+  font-size: clamp(0.55rem, 0.6vw, 0.92rem);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1.35;
+  color: var(--accent);
+}
+
+/* Flag hex (right of the photo): country flag filling the hexagon. */
+.hex-flag {
+  position: absolute; inset: 8%;
+  animation: info-pop 0.5s cubic-bezier(.2,.8,.2,1) var(--info-delay, 0ms) backwards;
+  pointer-events: none;
+}
+.hex-flag img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.hex-tile.info-flag .hex-frame .frame-base {
+  stroke: rgba(var(--gold-rgb), 0.7);
+  filter: drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.3));
 }
 
 /* ---------- Closeup card ---------- */

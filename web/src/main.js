@@ -7,7 +7,13 @@ import { runLoop } from './loop.js';
 
 const app = document.getElementById('app');
 
-const THEME_CYCLE = ['light', 'dark', 'color'];
+// The visible toggle button cycles the three "map" styles. The COLOR 3D globe
+// is intentionally NOT in this list — it's the hidden gem, revealed by
+// clicking the word SERVE in the brand.
+const THEME_CYCLE = ['light', 'dark', 'antique'];
+const THEME_LABEL = { light: 'LIGHT', dark: 'DARK', antique: 'OLD WORLD' };
+let theme = 'light';   // light | dark | antique  (driven by the toggle button)
+let colorOn = false;   // 3D globe overlay        (driven by clicking SERVE)
 let globeRoot = null;
 let globe3dModule = null; // lazy-loaded ./globe3d.js
 
@@ -15,19 +21,22 @@ function nextTheme(cur) {
   return THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length];
 }
 
-async function applyTheme(t) {
-  document.body.classList.toggle('dark', t === 'dark' || t === 'color');
-  document.body.classList.toggle('color', t === 'color');
-  state.theme = t;
+// Single source of truth: paint body classes + manage the 3D globe from the
+// current { theme, colorOn } state. COLOR wins over the map style while on.
+async function applyState() {
+  document.body.classList.toggle('color', colorOn);
+  // Color rides on the dark chrome palette (deep-space background).
+  document.body.classList.toggle('dark', colorOn || theme === 'dark');
+  document.body.classList.toggle('antique', !colorOn && theme === 'antique');
+  state.theme = colorOn ? 'color' : theme;
+
   const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = nextTheme(t).toUpperCase();
+  if (btn) btn.textContent = THEME_LABEL[nextTheme(theme)];
   refreshColors();
 
-  if (t === 'color') {
+  if (colorOn) {
     // Lazy-load three.js + the shader globe only when color mode activates.
-    if (!globe3dModule) {
-      globe3dModule = await import('./globe3d.js');
-    }
+    if (!globe3dModule) globe3dModule = await import('./globe3d.js');
     if (!document.getElementById('globe3d-canvas') && globeRoot) {
       // Insert BEFORE the 2D canvas so overlays paint on top.
       const cv = globe3dModule.mountGlobe3D(globeRoot);
@@ -44,33 +53,34 @@ async function applyTheme(t) {
 
 function initTheme() {
   const params = new URLSearchParams(location.search);
-  const saved = localStorage.getItem('cts:theme');
-  let initial = params.get('theme') || saved || 'light';
-  if (!THEME_CYCLE.includes(initial)) initial = 'light';
-  applyTheme(initial);
+  const savedTheme = params.get('theme') || localStorage.getItem('cts:theme') || 'light';
+  theme = THEME_CYCLE.includes(savedTheme) ? savedTheme : 'light';
+  colorOn = (params.get('color') ?? localStorage.getItem('cts:color')) === '1';
+  applyState();
 
+  // Toggle button: step through light → dark → old world. Always leaves the
+  // hidden color globe (the button is for the normal map styles).
   const btn = document.getElementById('theme-toggle');
   if (btn) {
     btn.addEventListener('click', () => {
-      const next = nextTheme(state.theme);
-      applyTheme(next);
-      try { localStorage.setItem('cts:theme', next); } catch {}
+      colorOn = false;
+      theme = nextTheme(theme);
+      try {
+        localStorage.setItem('cts:theme', theme);
+        localStorage.setItem('cts:color', '0');
+      } catch {}
+      applyState();
     });
   }
 
-  // Hidden feature: clicking the word SERVE in the brand toggles the
-  // old-world antique map. No visual affordance on purpose.
+  // Hidden feature: clicking the word SERVE toggles the COLOR 3D globe.
   const word = document.getElementById('antique-word');
   if (word) {
     word.addEventListener('click', () => {
-      const on = document.body.classList.toggle('antique');
-      try { localStorage.setItem('cts:antique', on ? '1' : '0'); } catch {}
-      refreshColors();
+      colorOn = !colorOn;
+      try { localStorage.setItem('cts:color', colorOn ? '1' : '0'); } catch {}
+      applyState();
     });
-  }
-  if ((params.get('antique') ?? localStorage.getItem('cts:antique')) === '1') {
-    document.body.classList.add('antique');
-    refreshColors();
   }
 }
 

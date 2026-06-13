@@ -74,9 +74,7 @@ function ensureDefs() {
   defs.setAttribute('height', '0');
   defs.style.position = 'absolute';
   defs.style.pointerEvents = 'none';
-  // Offset paths for edge labels: 6 viewBox units outside each top/bottom edge.
-  // Path directions chosen so text reads left-to-right when viewed normally.
-  // viewBox is 0 0 100 115.47 (pointy-top hex).
+  // Shared gradients every tile's glass fill references. viewBox 0 0 100 115.47.
   defs.innerHTML = `
     <defs>
       <linearGradient id="hex-glass" x1="0" y1="0" x2="0" y2="1">
@@ -96,10 +94,6 @@ function ensureDefs() {
         <stop offset="0%"   stop-color="rgba(91,192,190,0.16)"/>
         <stop offset="100%" stop-color="rgba(91,192,190,0.02)"/>
       </linearGradient>
-      <path id="hex-edge-top-left"  d="M -3,24.54 L 47,-4.33"/>
-      <path id="hex-edge-top-right" d="M 53,-4.33 L 103,24.54"/>
-      <path id="hex-edge-bot-left"  d="M -3,90.93 L 47,119.80"/>
-      <path id="hex-edge-bot-right" d="M 53,119.80 L 103,90.93"/>
     </defs>
   `;
   document.body.appendChild(defs);
@@ -531,64 +525,11 @@ function createMissionaryTile(m, q, r) {
   svg.appendChild(makePoly('frame-glow'));
   svg.appendChild(makePoly('frame-active'));
 
-  // Edge labels on the four corners — text along paths defined in hex-defs.
-  const { title, surname } = splitName(m.name);
-  const country = abbrevCountry(m.missionCountry || '').toUpperCase();
-  const city    = (m.missionCity    || '').toUpperCase();
-  addEdgeText(svg, 'hex-edge-top-left',  title.toUpperCase(),   'edge-top-left');
-  addEdgeText(svg, 'hex-edge-top-right', surname.toUpperCase(), 'edge-top-right');
-  addEdgeText(svg, 'hex-edge-bot-left',  country, 'edge-bot-left');
-  addEdgeText(svg, 'hex-edge-bot-right', city,    'edge-bot-right');
+  // Name / mission are no longer drawn around the tile edges — they appear in
+  // the info hex to the left of the photo on slam (see revealInfoHexes).
 
   root.append(photo, svg);
   return { q, r, root, isEmpty: false, missionary: m, photo, photoImg };
-}
-
-function addEdgeText(svg, pathId, text, posClass) {
-  if (!text) return;
-  const t = document.createElementNS(svgNS, 'text');
-  t.setAttribute('class', `edge-label ${posClass}`);
-  t.setAttribute('text-anchor', 'middle');
-  const tp = document.createElementNS(svgNS, 'textPath');
-  tp.setAttribute('href', `#${pathId}`);
-  tp.setAttribute('startOffset', '50%');
-  tp.textContent = text;
-  // Fit long labels to the path. Path is ~57.74 viewBox units; we squeeze to 46
-  // so glyph compression leaves comfortable margins at both ends — empirically
-  // textLength too close to the path length lets the renderer clip the leading
-  // character (the "MINNEAPOLIS" → "INNEAPOLIS" bug).
-  if (text.length > 9) {
-    tp.setAttribute('lengthAdjust', 'spacingAndGlyphs');
-    tp.setAttribute('textLength', '46');
-  }
-  t.appendChild(tp);
-  svg.appendChild(t);
-}
-
-function splitName(full) {
-  const parts = full.split(/\s+/);
-  const title = parts[0] || '';
-  // Only the LAST word is the surname — middle/first names appear on the
-  // closeup HUD card later, but the hex label has no room for them.
-  const surname = parts[parts.length - 1] || '';
-  return { title, surname };
-}
-
-// Country names longer than ~10 characters overflow the bottom-edge path.
-// Shorten the few common ones — the rest are already short enough.
-const COUNTRY_ABBREV = {
-  'United Kingdom': 'U.K.',
-  'United States': 'U.S.A.',
-  'Democratic Republic of Congo': 'DR Congo',
-  'Democratic Republic of the Congo': 'DR Congo',
-  'New Zealand': 'N.Z.',
-  'South Korea': 'S. Korea',
-  'South Africa': 'S. Africa',
-  'El Salvador': 'El Salv.',
-  'Hong Kong': 'H.K.',
-};
-function abbrevCountry(name) {
-  return COUNTRY_ABBREV[name] || name;
 }
 
 function setActive(tile) {
@@ -676,61 +617,98 @@ function decodeInto(el, text, durMs = 900, delayMs = 0) {
   decodeRafIds.push(requestAnimationFrame(frame));
 }
 
-// Pointy-top axial neighbours.
-const NEIGHBOR_DIRS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
-
 function revealInfoHexes(activeTile, wxPromise) {
   const m = activeTile.missionary;
+  const at = (dq, dr) => tiles.find(x =>
+    x.isEmpty && x.q === activeTile.q + dq && x.r === activeTile.r + dr);
 
-  // Preferred placement order: upper-right, lower-right, upper-left,
-  // lower-left, left, far-right LAST — the far-right neighbour can clip the
-  // viewport edge since the active tile sits right of screen centre.
-  const prefOrder = [[1, -1], [0, 1], [0, -1], [-1, 1], [-1, 0], [1, 0]];
-  const empties = [];
-  for (const [dq, dr] of prefOrder) {
-    const n = tiles.find(x => x.isEmpty && x.q === activeTile.q + dq && x.r === activeTile.r + dr);
-    if (n) empties.push(n);
-  }
+  // Anchored slots (pointy-top axial offsets from the active tile):
+  //   LEFT  [-1, 0] → name + mission        RIGHT [1, 0] → country flag
+  const left = at(-1, 0);
+  if (left) addIdentityHex(left, m, 0);
+  const right = at(1, 0);
+  if (right && m.flag) addFlagHex(right, m, 120);
 
+  // The four diagonals carry the decoded detail blocks.
+  const diagOrder = [[1, -1], [0, 1], [0, -1], [-1, 1]]; // UR, LR, UL, LL
+  const empties = diagOrder.map(([dq, dr]) => at(dq, dr)).filter(Boolean);
   const blocks = [];
   if (m.bio) blocks.push({ kicker: 'BIO', text: m.bio });
   if (m.fact) blocks.push({ kicker: 'FIELD NOTE', text: m.fact });
-  blocks.push({ kicker: 'WEATHER', text: '…', wx: true });
+  blocks.push({ kicker: 'WEATHER', wx: true });
+  blocks.slice(0, empties.length).forEach((block, i) =>
+    addInfoBlock(empties[i], block, i, wxPromise));
+}
 
-  blocks.slice(0, empties.length).forEach((block, i) => {
-    const tile = empties[i];
-    const content = document.createElement('div');
-    content.className = 'info-content';
-    content.style.clipPath = HEX_CLIP_PATH;
-    const kicker = document.createElement('div');
-    kicker.className = 'info-kicker';
-    const body = document.createElement('div');
-    body.className = 'info-body';
-    content.append(kicker, body);
-    tile.root.appendChild(content);
-    tile.root.classList.add('info');
-    tile.root.style.setProperty('--info-delay', `${i * 180}ms`);
-    infoTiles.push(tile);
+// Empty tile → decoded kicker + body (bio / field note / weather).
+function addInfoBlock(tile, block, i, wxPromise) {
+  const content = document.createElement('div');
+  content.className = 'info-content';
+  content.style.clipPath = HEX_CLIP_PATH;
+  const kicker = document.createElement('div');
+  kicker.className = 'info-kicker';
+  const body = document.createElement('div');
+  body.className = 'info-body';
+  content.append(kicker, body);
+  tile.root.appendChild(content);
+  tile.root.classList.add('info');
+  tile.root.style.setProperty('--info-delay', `${i * 180}ms`);
+  infoTiles.push(tile);
 
-    decodeInto(kicker, block.kicker, 350, i * 180);
-    if (block.wx) {
-      wxPromise.then(wx => {
-        if (!tile.root.classList.contains('info')) return; // cleared meanwhile
-        decodeInto(body, wx ? `${wx.c}°C / ${wx.f}°F\n${wx.desc}` : 'NO SIGNAL', 700, 0);
-      });
-    } else {
-      decodeInto(body, block.text, 900, i * 180 + 250);
-    }
-  });
+  decodeInto(kicker, block.kicker, 350, i * 180);
+  if (block.wx) {
+    wxPromise.then(wx => {
+      if (!tile.root.classList.contains('info')) return; // cleared meanwhile
+      decodeInto(body, wx ? `${wx.c}°C / ${wx.f}°F\n${wx.desc}` : 'NO SIGNAL', 700, 0);
+    });
+  } else {
+    decodeInto(body, block.text, 900, i * 180 + 250);
+  }
+}
+
+// LEFT tile → identity card: name (large/bold) above mission (smaller).
+function addIdentityHex(tile, m, delayMs) {
+  const content = document.createElement('div');
+  content.className = 'info-content identity';
+  content.style.clipPath = HEX_CLIP_PATH;
+  const nameEl = document.createElement('div');
+  nameEl.className = 'id-name';
+  const missionEl = document.createElement('div');
+  missionEl.className = 'id-mission';
+  content.append(nameEl, missionEl);
+  tile.root.appendChild(content);
+  tile.root.classList.add('info', 'info-identity');
+  tile.root.style.setProperty('--info-delay', `${delayMs}ms`);
+  infoTiles.push(tile);
+
+  decodeInto(nameEl, m.name.toUpperCase(), 650, delayMs);
+  decodeInto(missionEl, shortMission(m.mission).toUpperCase(), 850, delayMs + 320);
+}
+
+// RIGHT tile → country flag filling the hexagon.
+function addFlagHex(tile, m, delayMs) {
+  const base = import.meta.env.BASE_URL || '/';
+  const wrap = document.createElement('div');
+  wrap.className = 'hex-flag';
+  wrap.style.clipPath = HEX_CLIP_PATH;
+  const img = document.createElement('img');
+  img.src = base + m.flag.replace(/^\//, '');
+  img.alt = '';
+  wrap.appendChild(img);
+  tile.root.appendChild(wrap);
+  tile.root.classList.add('info', 'info-flag');
+  tile.root.style.setProperty('--info-delay', `${delayMs}ms`);
+  infoTiles.push(tile);
 }
 
 export function clearInfoHexes() {
   for (const id of decodeRafIds) cancelAnimationFrame(id);
   decodeRafIds = [];
   for (const tile of infoTiles) {
-    tile.root.classList.remove('info');
+    tile.root.classList.remove('info', 'info-identity', 'info-flag');
     tile.root.style.removeProperty('--info-delay');
     tile.root.querySelector('.info-content')?.remove();
+    tile.root.querySelector('.hex-flag')?.remove();
   }
   infoTiles = [];
 }

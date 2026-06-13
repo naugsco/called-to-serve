@@ -20,7 +20,9 @@
       "bio": null,
       "fact": "Built in a desert that hits 110°F in July; named after the mythical firebird.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "us",
+      "flag": "flags/us.svg"
     },
     {
       "slug": "sister-victoria-oviatt",
@@ -37,7 +39,9 @@
       "photos": [
         "images/sister-victoria-oviatt/1.jpg"
       ],
-      "bestPhoto": "images/sister-victoria-oviatt/1.jpg"
+      "bestPhoto": "images/sister-victoria-oviatt/1.jpg",
+      "countryCode": "fr",
+      "flag": "flags/fr.svg"
     },
     {
       "slug": "sister-tianna-downey",
@@ -52,7 +56,9 @@
       "bio": null,
       "fact": "Ocean, mountains, and rainforest all in one city; rains about half the year.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "ca",
+      "flag": "flags/ca.svg"
     },
     {
       "slug": "elder-kayk-de-souza",
@@ -67,7 +73,9 @@
       "bio": null,
       "fact": "Covers the northern half of a 22-million-person megacity.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "br",
+      "flag": "flags/br.svg"
     },
     {
       "slug": "sister-jin-woo-chun",
@@ -82,7 +90,9 @@
       "bio": null,
       "fact": "On an island chain 2,400 miles from the nearest continent.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "us",
+      "flag": "flags/us.svg"
     },
     {
       "slug": "elder-adi-narayan",
@@ -99,7 +109,9 @@
       "photos": [
         "images/elder-adi-narayan/1.jpg"
       ],
-      "bestPhoto": "images/elder-adi-narayan/1.jpg"
+      "bestPhoto": "images/elder-adi-narayan/1.jpg",
+      "countryCode": "us",
+      "flag": "flags/us.svg"
     },
     {
       "slug": "sister-katelyn-hatch",
@@ -114,7 +126,9 @@
       "bio": null,
       "fact": "Sits on the edge of the Pantanal — the world's largest tropical wetland.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "br",
+      "flag": "flags/br.svg"
     },
     {
       "slug": "elder-brayden-may",
@@ -131,7 +145,9 @@
       "photos": [
         "images/elder-brayden-may/1.jpg"
       ],
-      "bestPhoto": "images/elder-brayden-may/1.jpg"
+      "bestPhoto": "images/elder-brayden-may/1.jpg",
+      "countryCode": "us",
+      "flag": "flags/us.svg"
     },
     {
       "slug": "elder-angus-chen",
@@ -146,7 +162,9 @@
       "bio": null,
       "fact": "Includes the fields where Washington's army camped through the brutal winter of 1780.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "us",
+      "flag": "flags/us.svg"
     },
     {
       "slug": "elder-andre-milad",
@@ -161,7 +179,9 @@
       "bio": null,
       "fact": "Ocean, mountains, and rainforest all in one city; rains about half the year.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "ca",
+      "flag": "flags/ca.svg"
     },
     {
       "slug": "elder-alex-may",
@@ -178,7 +198,9 @@
       "photos": [
         "images/elder-alex-may/1.jpg"
       ],
-      "bestPhoto": "images/elder-alex-may/1.jpg"
+      "bestPhoto": "images/elder-alex-may/1.jpg",
+      "countryCode": "us",
+      "flag": "flags/us.svg"
     },
     {
       "slug": "elder-daniel-martenez",
@@ -193,7 +215,9 @@
       "bio": null,
       "fact": "High desert mission in the state that's home to the Copper Canyon — deeper than the Grand.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "mx",
+      "flag": "flags/mx.svg"
     },
     {
       "slug": "elder-aram-hernandez",
@@ -208,7 +232,9 @@
       "bio": null,
       "fact": "Ocean, mountains, and rainforest all in one city; rains about half the year.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "ca",
+      "flag": "flags/ca.svg"
     },
     {
       "slug": "sister-audrey-evans",
@@ -223,7 +249,9 @@
       "bio": null,
       "fact": "Ocean, mountains, and rainforest all in one city; rains about half the year.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "ca",
+      "flag": "flags/ca.svg"
     },
     {
       "slug": "sister-fernanda-martinez",
@@ -238,7 +266,9 @@
       "bio": null,
       "fact": "The western half of the city of tango and yerba mate.",
       "photos": [],
-      "bestPhoto": null
+      "bestPhoto": null,
+      "countryCode": "ar",
+      "flag": "flags/ar.svg"
     }
   ]
 }
