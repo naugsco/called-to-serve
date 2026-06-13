@@ -703,24 +703,40 @@ function buildClusterHighlight(activeTile) {
       return p;
     };
     const base = mkPath('cl-base');  // steady thick perimeter
-    const run = mkPath('cl-run');    // travelling comet body (with glow)
-    const head = mkPath('cl-head');  // bright glowing leading tip
-    clusterSvg.append(base, run, head);
+    clusterSvg.appendChild(base);
 
     // A comet circulating the loop once per cycle (seamless — period == path
-    // length). `run` is the body; `head` is a short bright tip locked to the
-    // body's leading edge (offset_head = offset_run + headLen - dash).
+    // length). Its leading edge is at path position h(t), h: 0 → len.
     const len = base.getTotalLength?.() || pathLenFallback(loop);
-    const dash = Math.max(len * 0.16, 160);
-    const headLen = 16;
+    const L = Math.max(len * 0.16, 160);  // comet length
     const dur = Math.max(2000, len * 1.6);
     const opts = { duration: dur, iterations: Infinity, easing: 'linear' };
-    run.style.strokeDasharray = `${dash.toFixed(1)} ${(len - dash).toFixed(1)}`;
+
+    // Body = overlapping segments forming a tail that holds full brightness
+    // from the head to its midpoint, then fades linearly to nothing by the
+    // tail end. Segment k trails the head by dk; opacity follows that fade.
+    const N = 12;
+    const seg = (L / N) * 1.8;             // overlap → smooth gradient
+    for (let k = 0; k < N; k++) {
+      const f = k / (N - 1);               // 0 at head, 1 at tail end
+      const op = f <= 0.5 ? 1 : Math.max(0, 2 * (1 - f));
+      const dk = f * (L - seg);            // distance behind the head
+      const slice = mkPath('cl-trail');
+      slice.style.strokeDasharray = `${seg.toFixed(1)} ${(len - seg).toFixed(1)}`;
+      slice.style.opacity = op.toFixed(3);
+      clusterSvg.appendChild(slice);
+      // leading edge at h - dk  ⇒  offset = seg + dk - h
+      clusterAnims.push(slice.animate(
+        [{ strokeDashoffset: seg + dk }, { strokeDashoffset: seg + dk - len }], opts));
+    }
+
+    // Bright glowing tip at the leading edge (h).
+    const head = mkPath('cl-head');
+    const headLen = 16;
     head.style.strokeDasharray = `${headLen} ${(len - headLen).toFixed(1)}`;
-    clusterAnims.push(run.animate(
-      [{ strokeDashoffset: 0 }, { strokeDashoffset: -len }], opts));
+    clusterSvg.appendChild(head);
     clusterAnims.push(head.animate(
-      [{ strokeDashoffset: headLen - dash }, { strokeDashoffset: headLen - dash - len }], opts));
+      [{ strokeDashoffset: headLen }, { strokeDashoffset: headLen - len }], opts));
   }
 
   fieldEl.appendChild(clusterSvg);

@@ -382,17 +382,18 @@ body { font-family: var(--font-sans); }
   stroke-linejoin: round;
   filter: drop-shadow(0 0 4px rgba(var(--gold-rgb), 0.35));
 }
-/* Travelling comet body — bright, with a soft glow halo around it. */
-.cluster-outline .cl-run {
+/* Travelling comet body — a stack of overlapping segments whose inline
+   opacity fades the tail from full (front half) to nothing (tail end). Each
+   carries a soft gold glow that fades with it. */
+.cluster-outline .cl-trail {
   fill: none;
   stroke: var(--gold);
   stroke-width: 6;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter:
-    drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.95))
-    drop-shadow(0 0 16px rgba(var(--gold-rgb), 0.6))
-    drop-shadow(0 0 34px rgba(var(--gold-rgb), 0.35));
+    drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.85))
+    drop-shadow(0 0 15px rgba(var(--gold-rgb), 0.5));
 }
 /* Bright leading tip — hot white-gold core with an intense glow, so the
    running light reads as a comet head leading its tail. */
