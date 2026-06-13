@@ -262,14 +262,11 @@ body { font-family: var(--font-sans); }
   transform: scale(1);
   transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.2,.8,.2,1);
 }
-/* Active (center, settled) — slight magnification + highlighted edges. */
-#hex-root.show-frames .hex-tile.filled.active {
-  transform: scale(1.08);
-}
-/* Arriving (mid-translate, before the highlight comes back on). Bigger scale,
-   slower transition matches the field-translate duration. */
+/* Every hex renders at the SAME size — the active missionary is emphasised by
+   the cluster perimeter highlight, not by magnification. Scaling the active
+   tile made it bigger than its neighbours and shrank the gaps around it
+   (most visible on the flag hex), so spacing/size are now uniform. */
 #hex-root.show-frames .hex-tile.filled.arriving {
-  transform: scale(1.18);
   transition: opacity 0.6s ease, transform 1.2s cubic-bezier(.2,.8,.2,1);
   z-index: 4;
 }
@@ -377,23 +374,38 @@ body { font-family: var(--font-sans); }
    One running gold light traced around the combined outer edge of the active
    missionary's hexes, treated as a single shape. Lives in field coords. */
 .cluster-outline { z-index: 5; }
+/* Steady perimeter — thickened 3× (was 2). */
 .cluster-outline .cl-base {
   fill: none;
-  stroke: rgba(var(--gold-rgb), 0.32);
-  stroke-width: 2;
+  stroke: rgba(var(--gold-rgb), 0.40);
+  stroke-width: 6;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 3px rgba(var(--gold-rgb), 0.28));
+  filter: drop-shadow(0 0 4px rgba(var(--gold-rgb), 0.35));
 }
+/* Travelling comet body — bright, with a soft glow halo around it. */
 .cluster-outline .cl-run {
   fill: none;
   stroke: var(--gold);
-  stroke-width: 3.6;
+  stroke-width: 6;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter:
-    drop-shadow(0 0 4px rgba(var(--gold-rgb), 0.95))
-    drop-shadow(0 0 12px rgba(var(--gold-rgb), 0.55))
-    drop-shadow(0 0 26px rgba(var(--gold-rgb), 0.32));
+    drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.95))
+    drop-shadow(0 0 16px rgba(var(--gold-rgb), 0.6))
+    drop-shadow(0 0 34px rgba(var(--gold-rgb), 0.35));
+}
+/* Bright leading tip — hot white-gold core with an intense glow, so the
+   running light reads as a comet head leading its tail. */
+.cluster-outline .cl-head {
+  fill: none;
+  stroke: #fff6da;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 7px rgba(var(--gold-rgb), 1))
+    drop-shadow(0 0 18px rgba(var(--gold-rgb), 0.85))
+    drop-shadow(0 0 40px rgba(var(--gold-rgb), 0.55));
 }
 
 /* While the cluster highlight is active, the cluster's own hexes show only a

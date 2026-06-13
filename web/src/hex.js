@@ -696,23 +696,31 @@ function buildClusterHighlight(activeTile) {
   for (const loop of chainLoops(edges)) {
     const d = loop.map((p, i) =>
       `${i ? 'L' : 'M'}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(' ') + ' Z';
-    const base = document.createElementNS(svgNS, 'path');
-    base.setAttribute('class', 'cl-base');
-    base.setAttribute('d', d);
-    const run = document.createElementNS(svgNS, 'path');
-    run.setAttribute('class', 'cl-run');
-    run.setAttribute('d', d);
-    clusterSvg.append(base, run);
+    const mkPath = cls => {
+      const p = document.createElementNS(svgNS, 'path');
+      p.setAttribute('class', cls);
+      p.setAttribute('d', d);
+      return p;
+    };
+    const base = mkPath('cl-base');  // steady thick perimeter
+    const run = mkPath('cl-run');    // travelling comet body (with glow)
+    const head = mkPath('cl-head');  // bright glowing leading tip
+    clusterSvg.append(base, run, head);
 
-    // One bright comet circulating the loop: dash on for `dash`, off for the
-    // rest, animated once around per cycle (seamless — period == path length).
+    // A comet circulating the loop once per cycle (seamless — period == path
+    // length). `run` is the body; `head` is a short bright tip locked to the
+    // body's leading edge (offset_head = offset_run + headLen - dash).
     const len = base.getTotalLength?.() || pathLenFallback(loop);
     const dash = Math.max(len * 0.16, 160);
+    const headLen = 16;
+    const dur = Math.max(2000, len * 1.6);
+    const opts = { duration: dur, iterations: Infinity, easing: 'linear' };
     run.style.strokeDasharray = `${dash.toFixed(1)} ${(len - dash).toFixed(1)}`;
+    head.style.strokeDasharray = `${headLen} ${(len - headLen).toFixed(1)}`;
     clusterAnims.push(run.animate(
-      [{ strokeDashoffset: 0 }, { strokeDashoffset: -len }],
-      { duration: Math.max(2000, len * 1.6), iterations: Infinity, easing: 'linear' },
-    ));
+      [{ strokeDashoffset: 0 }, { strokeDashoffset: -len }], opts));
+    clusterAnims.push(head.animate(
+      [{ strokeDashoffset: headLen - dash }, { strokeDashoffset: headLen - dash - len }], opts));
   }
 
   fieldEl.appendChild(clusterSvg);
