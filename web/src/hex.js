@@ -55,8 +55,6 @@ let clusterAnims = [];
 let tiles = [];
 let missionaryTiles = [];
 let R = 80, pitchX, pitchY;
-let lastCarouselSlug = null;
-let carouselTimer = null;
 
 export function mountHex(el) {
   containerEl = el;
@@ -634,15 +632,21 @@ function revealInfoHexes(activeTile, wxPromise) {
   const right = at(1, 0);
   if (right && m.flag) addFlagHex(right, m, 120);
 
-  // The four diagonals carry the decoded detail blocks.
+  // The four diagonals carry the decoded detail blocks — and, when the
+  // missionary submitted more than one photo, a gallery hex that cycles the
+  // remaining shots (everything except the main portrait).
   const diagOrder = [[1, -1], [0, 1], [0, -1], [-1, 1]]; // UR, LR, UL, LL
   const empties = diagOrder.map(([dq, dr]) => at(dq, dr)).filter(Boolean);
   const blocks = [];
   if (m.bio) blocks.push({ kicker: 'BIO', text: m.bio });
   if (m.fact) blocks.push({ kicker: 'FIELD NOTE', text: m.fact });
   blocks.push({ kicker: 'WEATHER', wx: true });
-  blocks.slice(0, empties.length).forEach((block, i) =>
-    addInfoBlock(empties[i], block, i, wxPromise));
+  const extraPhotos = (m.photos || []).filter(p => p !== m.bestPhoto);
+  if (extraPhotos.length) blocks.push({ gallery: extraPhotos });
+  blocks.slice(0, empties.length).forEach((block, i) => {
+    if (block.gallery) addGalleryHex(empties[i], block.gallery, i);
+    else addInfoBlock(empties[i], block, i, wxPromise);
+  });
 
   // Trace the running gold highlight around the whole cluster's outer edge.
   buildClusterHighlight(activeTile);
@@ -859,14 +863,47 @@ function addFlagHex(tile, m, delayMs) {
   infoTiles.push(tile);
 }
 
+// A diagonal tile → gallery of the missionary's other submitted photos,
+// cross-fading on a timer. A small "+N" badge marks it as a set.
+let galleryTimer = null;
+function addGalleryHex(tile, photos, i) {
+  const base = import.meta.env.BASE_URL || '/';
+  const src = p => base + p.replace(/^\//, '');
+  const wrap = document.createElement('div');
+  wrap.className = 'hex-gallery';
+  wrap.style.clipPath = HEX_CLIP_PATH;
+  const img = document.createElement('img');
+  img.alt = '';
+  img.src = src(photos[0]);
+  const badge = document.createElement('div');
+  badge.className = 'gallery-badge';
+  badge.textContent = `+${photos.length}`;
+  wrap.append(img, badge);
+  tile.root.appendChild(wrap);
+  tile.root.classList.add('info', 'info-gallery');
+  tile.root.style.setProperty('--info-delay', `${i * 180}ms`);
+  infoTiles.push(tile);
+
+  if (photos.length > 1) {
+    let idx = 0;
+    galleryTimer = setInterval(() => {
+      idx = (idx + 1) % photos.length;
+      img.style.opacity = '0';
+      setTimeout(() => { img.src = src(photos[idx]); img.style.opacity = '1'; }, 240);
+    }, 2000);
+  }
+}
+
 export function clearInfoHexes() {
   for (const id of decodeRafIds) cancelAnimationFrame(id);
   decodeRafIds = [];
+  if (galleryTimer) { clearInterval(galleryTimer); galleryTimer = null; }
   for (const tile of infoTiles) {
-    tile.root.classList.remove('info', 'info-identity', 'info-flag');
+    tile.root.classList.remove('info', 'info-identity', 'info-flag', 'info-gallery');
     tile.root.style.removeProperty('--info-delay');
     tile.root.querySelector('.info-content')?.remove();
     tile.root.querySelector('.hex-flag')?.remove();
+    tile.root.querySelector('.hex-gallery')?.remove();
   }
   infoTiles = [];
   clearClusterHighlight();
@@ -877,34 +914,6 @@ export function setPhotoColor(slug, amount) {
   if (!t) return;
   t.root.style.setProperty('--colorize', amount);
   t.root.classList.toggle('colorize', amount > 0.05);
-}
-
-export function startCarousel(slug) {
-  stopCarousel();
-  lastCarouselSlug = slug;
-  const t = missionaryTiles.find(tile => tile.missionary.slug === slug);
-  if (!t?.photoImg) return;
-  const photos = t.missionary.photos;
-  if (!photos || photos.length < 2) return;
-  let i = 0;
-  carouselTimer = setInterval(() => {
-    i = (i + 1) % photos.length;
-    t.photoImg.style.opacity = '0';
-    setTimeout(() => { t.photoImg.src = photos[i]; t.photoImg.style.opacity = '1'; }, 220);
-  }, 1600);
-}
-
-export function stopCarousel() {
-  if (carouselTimer) clearInterval(carouselTimer);
-  carouselTimer = null;
-  if (lastCarouselSlug) {
-    const t = missionaryTiles.find(tile => tile.missionary.slug === lastCarouselSlug);
-    if (t?.photoImg && t.missionary.photos[0]) {
-      t.photoImg.src = t.missionary.photos[0];
-      t.photoImg.style.opacity = '1';
-    }
-  }
-  lastCarouselSlug = null;
 }
 
 // Expose for any modules that want it.

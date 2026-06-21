@@ -1,13 +1,5 @@
-// Drive photo download + "best face" selection.
-//
-// Two passes:
-//   1. For each submission with a Drive URL, list & download all photos in the
-//      submission's Drive subfolder (or the single file if direct).
-//   2. Score each photo with face-api (Node build) and keep the highest scorer
-//      as `bestPhoto`; keep the rest in `photos` for the carousel.
-//
-// face-api is heavy (model files + canvas dep). Until wired, this module exports
-// `selectBestPhoto` as a no-op that returns the first photo.
+// Drive photo download. Best-face ranking lives in face.mjs and runs over the
+// downloaded files in sync.mjs.
 
 import { writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
@@ -32,10 +24,4 @@ export async function downloadPhoto(driveUrl, destPath) {
   await mkdir(dirname(destPath), { recursive: true });
   await writeFile(destPath, Buffer.from(res.data));
   return destPath;
-}
-
-// TODO(face-api): wire up @vladmandic/face-api to score faces.
-// For now, just return the first available photo.
-export function selectBestPhoto(localPaths) {
-  return localPaths[0] ?? null;
 }

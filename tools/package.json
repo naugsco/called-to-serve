@@ -5,6 +5,10 @@
   "type": "module",
   "main": "sync.mjs",
   "dependencies": {
-    "googleapis": "^144.0.0"
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "@vladmandic/face-api": "^1.7.15",
+    "googleapis": "^144.0.0",
+    "jpeg-js": "^0.4.4"
   }
 }

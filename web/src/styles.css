@@ -524,6 +524,30 @@ body { font-family: var(--font-sans); }
   filter: drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.3));
 }
 
+/* Gallery hex: the missionary's other photos, cross-fading on a timer, with a
+   small "+N" badge. */
+.hex-gallery {
+  position: absolute; inset: 8%;
+  animation: info-pop 0.5s cubic-bezier(.2,.8,.2,1) var(--info-delay, 0ms) backwards;
+  pointer-events: none;
+}
+.hex-gallery img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.24s ease;
+}
+.gallery-badge {
+  position: absolute; bottom: 16%; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: clamp(0.55rem, 0.6vw, 0.9rem);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85);
+}
+
 /* ---------- Closeup card ---------- */
 #closeup-card {
   display: flex; align-items: center; justify-content: center;

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-21T18:18:40.927Z",
+  "generatedAt": "2026-06-21T18:57:55.170Z",
   "source": "live (sheets + drive)",
   "origin": {
     "lat": 49.2827,
@@ -90,13 +90,13 @@
       "bio": null,
       "fact": "On an island chain 2,400 miles from the nearest continent.",
       "photos": [
-        "images/elder-jin-woo-chun/1.jpg",
+        "images/elder-jin-woo-chun/5.jpg",
         "images/elder-jin-woo-chun/2.jpg",
-        "images/elder-jin-woo-chun/3.jpg",
         "images/elder-jin-woo-chun/4.jpg",
-        "images/elder-jin-woo-chun/5.jpg"
+        "images/elder-jin-woo-chun/3.jpg",
+        "images/elder-jin-woo-chun/1.jpg"
       ],
-      "bestPhoto": "images/elder-jin-woo-chun/1.jpg",
+      "bestPhoto": "images/elder-jin-woo-chun/5.jpg",
       "countryCode": "us",
       "flag": "flags/us.svg"
     },

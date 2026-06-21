@@ -158,9 +158,9 @@ async function hexHighlight(m) {
     v: 1, duration: T.hexHighlightColor, ease: 'power2.out',
     onUpdate() { hex.setPhotoColor(m.slug, this.targets()[0].v); },
   });
-  if (m.photos && m.photos.length > 1) hex.startCarousel(m.slug);
+  // Extra photos cross-fade in their own gallery hex (built on slam), so the
+  // main portrait stays put while the missionary is on screen.
   await hold(T.hexHighlightHold);   // FEED skips to the next mission
-  hex.stopCarousel();
   await tweenTo({ v: 1 }, {
     v: 0, duration: 0.6, ease: 'power2.in',
     onUpdate() { hex.setPhotoColor(m.slug, this.targets()[0].v); },

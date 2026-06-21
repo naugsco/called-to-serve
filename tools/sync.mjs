@@ -12,7 +12,8 @@ import { dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { portraitSvg } from './portrait.mjs';
 import { readSubmissions, readRoster } from './sheets.mjs';
-import { downloadPhoto, selectBestPhoto } from './photos.mjs';
+import { downloadPhoto } from './photos.mjs';
+import { rankPhotosByFace } from './face.mjs';
 import { decorateWithFlags } from './flags.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -230,8 +231,20 @@ for (const m of missionaries) {
       }
     }
   }
-  m.photos = local;
-  m.bestPhoto = selectBestPhoto(local);
+  // Rank by "best face" so the cleanest solo portrait leads (becomes the main
+  // hex image); the rest trail it and feed the gallery hex. Only JPEG (Drive)
+  // photos are scored; SVG sample portraits keep their order.
+  const jpgRel = local.filter(p => p.endsWith('.jpg'));
+  if (jpgRel.length > 1) {
+    const absToRel = new Map(jpgRel.map(rel => [resolve(PUBLIC_DIR, rel), rel]));
+    const rankedAbs = await rankPhotosByFace([...absToRel.keys()]);
+    const rankedRel = rankedAbs.map(abs => absToRel.get(abs));
+    const others = local.filter(p => !p.endsWith('.jpg'));
+    m.photos = [...rankedRel, ...others];
+  } else {
+    m.photos = local;
+  }
+  m.bestPhoto = m.photos[0] ?? null;
   delete m._sourcePhotos;
 }
 // Drop the underscored field from rows that had no photos.
