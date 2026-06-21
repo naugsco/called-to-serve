@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-02T05:11:46.317Z",
+  "generatedAt": "2026-06-21T18:08:47.732Z",
   "source": "live (sheets + drive)",
   "origin": {
     "lat": 49.2827,
@@ -44,17 +44,17 @@
       "flag": "flags/fr.svg"
     },
     {
-      "slug": "sister-tianna-downey",
-      "name": "Sister Tianna Downey",
-      "mission": "Canada Vancouver Mission",
-      "missionSlug": "canada-vancouver-mission",
-      "missionLat": 49.2827,
-      "missionLng": -123.1207,
+      "slug": "elder-tallan-blatchford",
+      "name": "Elder Tallan Blatchford",
+      "mission": "Canada Toronto Mission",
+      "missionSlug": "canada-toronto-mission",
+      "missionLat": 43.6532,
+      "missionLng": -79.3832,
       "missionCountry": "Canada",
-      "missionCity": "Vancouver",
+      "missionCity": "Toronto",
       "permission": false,
       "bio": null,
-      "fact": "Ocean, mountains, and rainforest all in one city; rains about half the year.",
+      "fact": "More than half of Toronto's residents were born outside Canada.",
       "photos": [],
       "bestPhoto": null,
       "countryCode": "ca",
@@ -78,8 +78,8 @@
       "flag": "flags/br.svg"
     },
     {
-      "slug": "sister-jin-woo-chun",
-      "name": "Sister Jin-Woo Chun",
+      "slug": "elder-jin-woo-chun",
+      "name": "Elder Jin-Woo Chun",
       "mission": "Hawaii Honolulu Mission",
       "missionSlug": "hawaii-honolulu-mission",
       "missionLat": 21.3099,
@@ -237,6 +237,23 @@
       "flag": "flags/ca.svg"
     },
     {
+      "slug": "sister-fernanda-martinez",
+      "name": "Sister Fernanda Martinez",
+      "mission": "Argentina Buenos Aires West Mission",
+      "missionSlug": "argentina-buenos-aires-west-mission",
+      "missionLat": -34.6037,
+      "missionLng": -58.3816,
+      "missionCountry": "Argentina",
+      "missionCity": "Buenos Aires",
+      "permission": false,
+      "bio": null,
+      "fact": "The western half of the city of tango and yerba mate.",
+      "photos": [],
+      "bestPhoto": null,
+      "countryCode": "ar",
+      "flag": "flags/ar.svg"
+    },
+    {
       "slug": "sister-audrey-evans",
       "name": "Sister Audrey Evans",
       "mission": "Canada Vancouver Mission",
@@ -254,21 +271,23 @@
       "flag": "flags/ca.svg"
     },
     {
-      "slug": "sister-fernanda-martinez",
-      "name": "Sister Fernanda Martinez",
-      "mission": "Argentina Buenos Aires West Mission",
-      "missionSlug": "argentina-buenos-aires-west-mission",
-      "missionLat": -34.6037,
-      "missionLng": -58.3816,
-      "missionCountry": "Argentina",
-      "missionCity": "Buenos Aires",
-      "permission": false,
+      "slug": "elder-elijah-pederson",
+      "name": "Elder Elijah Pederson",
+      "mission": "Peru Cusco Mission",
+      "missionSlug": "peru-cusco-mission",
+      "missionLat": -13.5294,
+      "missionLng": -71.985,
+      "missionCountry": "Peru",
+      "missionCity": "Cusco",
+      "permission": true,
       "bio": null,
-      "fact": "The western half of the city of tango and yerba mate.",
-      "photos": [],
-      "bestPhoto": null,
-      "countryCode": "ar",
-      "flag": "flags/ar.svg"
+      "fact": null,
+      "photos": [
+        "images/elder-elijah-pederson/1.jpg"
+      ],
+      "bestPhoto": "images/elder-elijah-pederson/1.jpg",
+      "countryCode": "pe",
+      "flag": "flags/pe.svg"
     }
   ]
 }

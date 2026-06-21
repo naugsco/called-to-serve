@@ -101,14 +101,12 @@ export async function readRoster(knownMissionNames = []) {
 
 export function parseRosterCell(cell, knownMissionNames = []) {
   const raw = cell.trim();
-  // Strategy 1: split on em-dash / en-dash / hyphen. Cheap, handles the common case.
-  const parts = raw.split(/\s*[—–\-]\s*/);
-  if (parts.length >= 2) {
-    const cand = parts.slice(1).join(' - ').trim();
-    if (knownMissionNames.length === 0 || matchesKnownMission(cand, knownMissionNames)) {
-      return { name: parts[0].trim(), mission: cand, raw };
-    }
-  }
+  // Strategy 1: split on an explicit delimiter. This handles known missions
+  // and newly discovered mission-looking values so sync can report the exact
+  // missing coordinate entry instead of "no mission found".
+  const delimited = parseDelimitedRosterCell(raw, knownMissionNames);
+  if (delimited) return delimited;
+
   // Strategy 2: suffix-match any known mission name. Useful when the master
   // sheet has "Elder Smith Brazil São Paulo South Mission" with no separator.
   const folded = fold(raw);
@@ -130,9 +128,42 @@ export function parseRosterCell(cell, knownMissionNames = []) {
   return { name: raw, mission: null, raw };
 }
 
-function matchesKnownMission(s, known) {
+function parseDelimitedRosterCell(raw, knownMissionNames) {
+  // Dash-separated rows are the expected format. Require surrounding
+  // whitespace so hyphenated names do not split.
+  const dashParts = raw.split(/\s+[—–-]\s+/);
+  const byDash = parseDelimitedParts(raw, dashParts, knownMissionNames, ' - ', 'first');
+  if (byDash) return byDash;
+
+  // Some roster rows use "Name, Mission" or similar punctuation.
+  const punctuationParts = raw.split(/\s*[,|:]\s*/);
+  return parseDelimitedParts(raw, punctuationParts, knownMissionNames, ', ', 'last');
+}
+
+function parseDelimitedParts(raw, parts, knownMissionNames, nameJoiner, unknownStrategy) {
+  if (parts.length < 2) return null;
+  let unknown = null;
+
+  for (let i = parts.length - 1; i > 0; i--) {
+    const cand = parts.slice(i).join(nameJoiner).trim();
+    if (!looksLikeMission(cand)) continue;
+    const name = parts.slice(0, i).join(nameJoiner).trim();
+    const known = findKnownMission(cand, knownMissionNames);
+    if (known) return { name, mission: known, raw };
+    const parsed = { name, mission: cand, raw };
+    if (!unknown || unknownStrategy === 'first') unknown = parsed;
+  }
+
+  return unknown;
+}
+
+function looksLikeMission(s) {
+  return /\bmission$/i.test((s || '').trim());
+}
+
+function findKnownMission(s, known) {
   const sf = fold(s);
-  return known.some(m => fold(m) === sf);
+  return known.find(m => fold(m) === sf) || null;
 }
 
 // Diacritic-fold + lowercase. "São" → "sao". Preserves position by mapping

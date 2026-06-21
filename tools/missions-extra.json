@@ -18,6 +18,7 @@
     { "name": "New Jersey Morristown Mission",   "hq": "Morristown, NJ",   "country": "United States", "lat": 40.7968, "lng":  -74.4815 },
     { "name": "Minnesota Minneapolis Mission",   "hq": "Minneapolis, MN",  "country": "United States", "lat": 44.9778, "lng":  -93.2650 },
     { "name": "Washington Vancouver Mission",    "hq": "Vancouver, WA",    "country": "United States", "lat": 45.6387, "lng": -122.6615 },
-    { "name": "Mexico Chihuahua Mission",        "hq": "Chihuahua",        "country": "Mexico",        "lat": 28.6353, "lng": -106.0889 }
+    { "name": "Mexico Chihuahua Mission",        "hq": "Chihuahua",        "country": "Mexico",        "lat": 28.6353, "lng": -106.0889 },
+    { "name": "Peru Cusco Mission",              "hq": "Cusco",            "country": "Peru",          "lat": -13.5294, "lng":  -71.9850 }
   ]
 }

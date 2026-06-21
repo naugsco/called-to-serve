@@ -10,6 +10,7 @@
   "scripts": {
     "sync": "node tools/sync.mjs",
     "sync:dry": "node tools/sync.mjs --dry-run",
+    "test": "node --test tools/*.test.mjs",
     "dev": "npm run dev --workspace web",
     "build": "npm run build --workspace web",
     "preview": "npm run preview --workspace web"
