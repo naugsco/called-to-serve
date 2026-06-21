@@ -89,14 +89,37 @@ async function loadReal() {
   ]);
   // Group submissions by normalized missionary name — parents may submit
   // multiple times, and each row may carry multiple Drive URLs.
+  //
+  // Parents often spell a name slightly differently than the roster —
+  // hyphens, spacing, "Jin-Woo" vs "Jinwoo". The roster's "Jin-Woo Chun"
+  // normalizes to "jin woo chun" but a submitted "Jinwoo Chun" normalizes to
+  // "jinwoo chun", so the exact keys miss. We also index by a "tight" key
+  // (spaces removed) and fall back to it when the exact key has no match —
+  // but only for submissions that don't already match some other roster
+  // entry exactly, so a fallback never steals another missionary's photos.
+  const tighten = k => k.replace(/\s+/g, '');
   const subsByName = new Map();
+  const subsByTight = new Map();
+  const push = (map, key, val) => { (map.get(key) ?? map.set(key, []).get(key)).push(val); };
   for (const s of submissions) {
     const key = normalizeName(s.name);
-    if (!subsByName.has(key)) subsByName.set(key, []);
-    subsByName.get(key).push(s);
+    push(subsByName, key, s);
+    push(subsByTight, tighten(key), s);
   }
+  const rosterExactKeys = new Set(roster.map(r => normalizeName(r.name)));
   return roster.map(r => {
-    const subs = subsByName.get(normalizeName(r.name)) || [];
+    const key = normalizeName(r.name);
+    let subs = subsByName.get(key);
+    if (!subs) {
+      // Orphan submissions (no exact roster match) whose tight key matches.
+      const cand = (subsByTight.get(tighten(key)) || [])
+        .filter(s => !rosterExactKeys.has(normalizeName(s.name)));
+      if (cand.length) {
+        subs = cand;
+        console.warn(`[sync] "${r.name}" matched submission "${cand[0].name}" by collapsed-spelling fallback — consider aligning the form spelling.`);
+      }
+    }
+    subs = subs || [];
     const allowed = subs.filter(s => s.permission);
     const urls = allowed.flatMap(s => s.photoUrls);
     const bio = (subs.find(s => s.bio)?.bio) || null;

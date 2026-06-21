@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-21T18:08:47.732Z",
+  "generatedAt": "2026-06-21T18:18:40.927Z",
   "source": "live (sheets + drive)",
   "origin": {
     "lat": 49.2827,
@@ -86,11 +86,17 @@
       "missionLng": -157.8581,
       "missionCountry": "United States",
       "missionCity": "Honolulu",
-      "permission": false,
+      "permission": true,
       "bio": null,
       "fact": "On an island chain 2,400 miles from the nearest continent.",
-      "photos": [],
-      "bestPhoto": null,
+      "photos": [
+        "images/elder-jin-woo-chun/1.jpg",
+        "images/elder-jin-woo-chun/2.jpg",
+        "images/elder-jin-woo-chun/3.jpg",
+        "images/elder-jin-woo-chun/4.jpg",
+        "images/elder-jin-woo-chun/5.jpg"
+      ],
+      "bestPhoto": "images/elder-jin-woo-chun/1.jpg",
       "countryCode": "us",
       "flag": "flags/us.svg"
     },
