@@ -63,19 +63,27 @@ export async function runLoop({ missionaries }) {
   // Pre-build the hex field once. Field is shown/hidden, not rebuilt each loop.
   hex.buildField(missionaries);
   while (true) {
+    state.phase = 'intro';
     await introSpin();
+    state.phase = 'burst';
     await vancouverBurst(missionaries);
+    state.phase = 'tour';
     await macroTour();
+    state.phase = 'closeup';
     for (const m of missionaries) {
       if (m.missionLat == null) continue;
       await closeup(m);
     }
+    state.phase = 'globe-left';
     await globeToLeft();
+    state.phase = 'hex-in';
     await hexMaterialize();
+    state.phase = 'hex-highlight';
     for (const m of missionaries) {
       if (m.missionLat == null) continue;
       await hexHighlight(m);
     }
+    state.phase = 'outro';
     await outro();
   }
 }

@@ -14,6 +14,7 @@ import { portraitSvg } from './portrait.mjs';
 import { readSubmissions, readRoster } from './sheets.mjs';
 import { downloadPhoto } from './photos.mjs';
 import { rankPhotosByFace } from './face.mjs';
+import { shrinkPhoto } from './resize.mjs';
 import { decorateWithFlags } from './flags.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -244,6 +245,9 @@ for (const m of missionaries) {
   } else {
     m.photos = local;
   }
+  // Shrink AFTER ranking so face scoring still sees the full-resolution
+  // originals. Raw phone photos decode to ~98 MB each and lock up the TV.
+  for (const rel of jpgRel) await shrinkPhoto(resolve(PUBLIC_DIR, rel));
   m.bestPhoto = m.photos[0] ?? null;
   delete m._sourcePhotos;
 }

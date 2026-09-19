@@ -5,6 +5,7 @@ import { SPEED } from './timings.js';
 
 export const state = {
   data: null, // missionaries manifest
+  phase: 'boot', // current loop stage — set by loop.js, read by the ?perf=1 overlay
 
   globe: {
     lambda: 0,           // current globe longitude rotation (deg)

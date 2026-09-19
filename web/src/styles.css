@@ -564,7 +564,8 @@ body { font-family: var(--font-sans); }
   padding: clamp(1rem, 1.2vw, 2rem);
   box-shadow: 0 0 0 1px rgba(var(--ink-rgb),0.05),
               0 16px 56px rgba(0,0,0,0.18);
-  backdrop-filter: blur(10px);
+  /* No backdrop-filter: it re-blurs the continuously repainting globe canvas
+     every frame (costly on TV GPUs) and the 92% opaque fill hides it anyway. */
   position: absolute;
   bottom: clamp(8vh, 12vh, 18vh); right: clamp(4vw, 6vw, 9vw);
 }

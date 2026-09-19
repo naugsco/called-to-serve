@@ -84,11 +84,22 @@ export function mountGlobe(el) {
   requestAnimationFrame(tick);
 }
 
+// The canvas is redrawn in full every frame, so its pixel count sets the cost.
+// A 4K TV reports ~2x pixel ratio → 8.3 MP per frame, which a TV SoC can't
+// sustain. Budget ≈ 1080p (2.07 MP); the browser upscales the rest. Override
+// with ?dpr=2 (e.g. to see full sharpness on a fast machine).
+const MAX_CANVAS_PIXELS = 2.1e6;
+function pickDpr(w, h) {
+  const forced = Number(new URLSearchParams(location.search).get('dpr'));
+  if (forced > 0) return Math.min(forced, 3);
+  const native = Math.min(window.devicePixelRatio || 1, 3);
+  return Math.min(native, Math.sqrt(MAX_CANVAS_PIXELS / (w * h)));
+}
+
 function resize() {
-  // Allow full device pixel ratio for crisp 4K rendering. Cap at 3 to bound memory.
-  dpr = Math.min(window.devicePixelRatio || 1, 3);
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
+  dpr = pickDpr(window.innerWidth, window.innerHeight);
+  canvas.width = Math.round(window.innerWidth * dpr);
+  canvas.height = Math.round(window.innerHeight * dpr);
   canvas.style.width = window.innerWidth + 'px';
   canvas.style.height = window.innerHeight + 'px';
   ctx = canvas.getContext('2d');

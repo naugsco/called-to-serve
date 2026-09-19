@@ -107,6 +107,11 @@ async function main() {
   mountGlobe(globeRoot);
   mountHex(hexRoot);
 
+  // ?perf=1 — FPS / resolution / per-phase overlay for tuning on the TV.
+  if (new URLSearchParams(location.search).get('perf') === '1') {
+    (await import('./perf.js')).mountPerf();
+  }
+
   globalThis.__app = { state };
 
   setTimeout(() => location.reload(), 6 * 60 * 60 * 1000);
