@@ -15,6 +15,7 @@ import { readSubmissions, readRoster } from './sheets.mjs';
 import { downloadPhoto } from './photos.mjs';
 import { rankPhotosByFace } from './face.mjs';
 import { shrinkPhoto } from './resize.mjs';
+import { parseStartDate } from './dates.mjs';
 import { decorateWithFlags } from './flags.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -125,15 +126,33 @@ async function loadReal() {
     const allowed = subs.filter(s => s.permission);
     const urls = allowed.flatMap(s => s.photoUrls);
     const bio = (subs.find(s => s.bio)?.bio) || null;
+    const first = key => subs.find(s => s[key])?.[key] ?? null;
     return {
       name: r.name,
       mission: r.mission,
       raw: r.raw,
       permission: allowed.length > 0,
       bio,
+      startDate: resolveStartDate(r.name, subs),
+      language: first('language'),
+      homeWard: first('homeWard'),
       sourcePhotos: urls.map(u => ({ kind: 'drive', url: u })),
     };
   });
+}
+
+// First submission with a usable start date wins. Ambiguous ("10/02/2025") or
+// unreadable answers are reported, never guessed — fix the cell as YYYY-MM-DD.
+function resolveStartDate(name, subs) {
+  for (const s of subs) {
+    const parsed = parseStartDate(s.startDateRaw);
+    if (!parsed) continue;
+    if (parsed.iso) return parsed.iso;
+    const why = parsed.ambiguous ? 'could be day/month or month/day' : 'not a recognisable date';
+    console.warn(`[sync] WARN: start date for ${name} is "${s.startDateRaw}" (${why}) — ` +
+      'change that cell to YYYY-MM-DD in the response sheet. Showing no start date.');
+  }
+  return null;
 }
 
 function normalizeName(s) {
@@ -172,6 +191,9 @@ for (const row of sourceRows) {
     missionCity: cleanHq(mission.hq),
     permission: !!row.permission,
     bio: row.bio ?? null,
+    startDate: row.startDate ?? null,   // YYYY-MM-DD from the form
+    language: row.language ?? null,
+    homeWard: row.homeWard ?? null,
     fact: factsRaw.facts?.[mission.slug] ?? null,
     _sourcePhotos: row.sourcePhotos,
     photos: [],

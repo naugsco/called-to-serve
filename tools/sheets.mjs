@@ -7,7 +7,7 @@
 //   4. Export GOOGLE_SA_JSON to the JSON key (path or raw JSON).
 //
 // Configure the spreadsheet IDs via env so prod and local can differ:
-//   SUBMISSIONS_SHEET_ID   — sheet with columns B/C/D/E (name, photo, perm, bio)
+//   SUBMISSIONS_SHEET_ID   — form response sheet (columns found by header text)
 //   ROSTER_SHEET_ID        — master sheet with the "Missionaries" tab
 
 import { getGoogleAuth } from './google-auth.mjs';
@@ -22,48 +22,75 @@ async function client() {
   return _sheets;
 }
 
-// One submission row in the photo-submissions sheet. Column C may carry
-// MULTIPLE Drive URLs if the Google Form used a multi-file upload question —
-// they typically arrive comma- or newline-separated.
+// The "Missionary Photos" Google Form writes one row per submission. The
+// photo cell may carry MULTIPLE Drive URLs (multi-file upload question),
+// comma- or newline-separated.
 //
+// Columns are found by their HEADER text (the form question), not position:
+// adding a question to the form appends a column, and the form owner may
+// reorder questions. Each pattern must match exactly one header.
+const SUBMISSION_COLUMNS = {
+  name:       { re: /missionary.s name/i,  required: true },
+  photo:      { re: /^photo/i,             required: true },
+  permission: { re: /permission/i,         required: true },
+  bio:        { re: /\bbio\b/i,            required: false },
+  startDate:  { re: /start date/i,         required: false },
+  language:   { re: /language/i,           required: false },
+  homeWard:   { re: /\bward\b/i,           required: false },
+};
+
 // Two reader paths:
 //   • PUBLIC_SUBMISSIONS_CSV_URL set → fetch via published-CSV (no auth)
 //   • else                          → use Sheets API (auth required)
 export async function readSubmissions() {
   const csvUrl = process.env.PUBLIC_SUBMISSIONS_CSV_URL;
-  if (csvUrl) return readSubmissionsViaCsv(csvUrl);
+  if (csvUrl) return parseSubmissionRows(await fetchCsv(csvUrl));
 
   const id = process.env.SUBMISSIONS_SHEET_ID;
   if (!id) throw new Error('Neither SUBMISSIONS_SHEET_ID nor PUBLIC_SUBMISSIONS_CSV_URL is set');
   const s = await client();
-  // Columns B:E — name, photo link, permission yes/no, bio.
-  const r = await s.spreadsheets.values.get({ spreadsheetId: id, range: 'B:E' });
-  const rows = r.data.values ?? [];
-  return rows
-    .filter(row => row[0] && !/^name/i.test(row[0])) // skip header
-    .map(row => ({
-      name: row[0]?.trim(),
-      photoUrls: splitPhotoUrls(row[1] || ''),
-      permission: /^y/i.test(row[2] ?? ''),
-      bio: row[3]?.trim() || null,
-    }));
+  // UNFORMATTED + SERIAL_NUMBER: a Date-type answer arrives as a day serial,
+  // which is unambiguous (a formatted "10/02/2025" is not).
+  const r = await s.spreadsheets.values.get({
+    spreadsheetId: id,
+    range: 'A:Z',
+    valueRenderOption: 'UNFORMATTED_VALUE',
+    dateTimeRenderOption: 'SERIAL_NUMBER',
+  });
+  return parseSubmissionRows(r.data.values ?? []);
 }
 
-// Published-CSV variant. The CSV columns must mirror the API's B:E shape:
-// col0=name, col1=photo link, col2=Yes/No, col3=bio. Sheets' Publish-to-web
-// preserves the column order, so just publish the same tab as-is.
-async function readSubmissionsViaCsv(url) {
-  const rows = await fetchCsv(url);
-  // Drop header row (best-effort: drop row 1 if it looks like a header).
-  const data = rows.length && /name|missionar/i.test(rows[0][0] || '')
-    ? rows.slice(1) : rows;
-  return data
-    .filter(row => row[0])
+// rows[0] is the header row. Returns one object per submission with a name.
+// startDateRaw is passed through untouched (string or day serial) — sync.mjs
+// parses it with dates.mjs so it can report ambiguous values by missionary.
+export function parseSubmissionRows(rows) {
+  if (!rows.length) return [];
+  const header = rows[0].map(h => String(h ?? '').trim());
+  const col = {};
+  for (const [key, { re, required }] of Object.entries(SUBMISSION_COLUMNS)) {
+    const hits = header.flatMap((h, i) => (re.test(h) ? [i] : []));
+    if (hits.length > 1) {
+      throw new Error(`Submissions sheet: ${hits.length} columns match "${key}" (${re}): ` +
+        hits.map(i => `"${header[i]}"`).join(', '));
+    }
+    if (!hits.length && required) {
+      throw new Error(`Submissions sheet: no column matches "${key}" (${re}). Headers: ` +
+        header.map(h => `"${h}"`).join(', '));
+    }
+    col[key] = hits.length ? hits[0] : -1;
+  }
+  const cell = (row, key) => (col[key] < 0 ? '' : row[col[key]] ?? '');
+  const text = (row, key) => String(cell(row, key)).trim() || null;
+  return rows.slice(1)
+    .filter(row => text(row, 'name'))
     .map(row => ({
-      name: (row[0] || '').trim(),
-      photoUrls: splitPhotoUrls(row[1] || ''),
-      permission: /^y/i.test(row[2] ?? ''),
-      bio: (row[3] || '').trim() || null,
+      name: text(row, 'name'),
+      photoUrls: splitPhotoUrls(String(cell(row, 'photo'))),
+      permission: /^y/i.test(String(cell(row, 'permission'))),
+      bio: text(row, 'bio'),
+      startDateRaw: cell(row, 'startDate') === '' ? null : cell(row, 'startDate'),
+      language: text(row, 'language'),
+      homeWard: text(row, 'homeWard'),
     }));
 }
 
