@@ -1,8 +1,8 @@
-// Entry point — load manifest, mount globe + hex container, kick off loop.
+// Entry point — load manifest, mount globe + profile panel, kick off loop.
 
 import { state } from './state.js';
 import { mountGlobe, refreshColors, setGlobe3DSync } from './globe.js';
-import { mountHex } from './hex.js';
+import { mountProfile } from './profile.js';
 import { runLoop, advance } from './loop.js';
 
 const app = document.getElementById('app');
@@ -97,15 +97,11 @@ async function main() {
 
   globeRoot = document.createElement('div');
   globeRoot.id = 'globe-root';
-  const hexRoot = document.createElement('div');
-  hexRoot.id = 'hex-root';
-  const card = document.createElement('div');
-  card.id = 'closeup-card';
-  app.append(globeRoot, hexRoot, card);
+  app.append(globeRoot);
 
   initTheme();
   mountGlobe(globeRoot);
-  mountHex(hexRoot);
+  mountProfile();
 
   // ?perf=1 — FPS / resolution / per-phase overlay for tuning on the TV.
   if (new URLSearchParams(location.search).get('perf') === '1') {
@@ -116,20 +112,17 @@ async function main() {
 
   setTimeout(() => location.reload(), 6 * 60 * 60 * 1000);
 
-  // ?freeze=1 halts the run loop for debugging — the field stays where it is.
+  // Review/debug: ?i=N jumps straight to missionary N's profile (skipping the
+  // launch); ?freeze=1 stops on it. ?freeze=1 alone freezes on the first.
   const params = new URLSearchParams(location.search);
-  if (params.get('freeze') === '1') {
-    const hexModule = await import('./hex.js');
-    const { buildField, showHex, showFrames, showPhotos, showNames } = hexModule;
-    globalThis.__hex = hexModule; // debug access to the live module instance
-    buildField(state.data.missionaries);
-    showHex(true); showFrames(true); showPhotos(true); showNames(true);
-    state.globe.centerX = 0.22;
-    state.globe.scale = 0.9;
-    state.globe.omega = 0;
-    return;
-  }
-  runLoop({ missionaries: state.data.missionaries });
+  const freeze = params.get('freeze') === '1';
+  const startAt = params.has('i') ? Number(params.get('i')) || 0 : (freeze ? 0 : null);
+  runLoop({
+    missionaries: state.data.missionaries,
+    origin: state.data.origin,
+    startAt,
+    freeze,
+  });
 }
 
 main().catch(err => {

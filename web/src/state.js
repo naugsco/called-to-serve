@@ -21,30 +21,12 @@ export const state = {
     // mission-slug → state
     // { highlighted: bool, excitedAt: number|null }
     byMission: new Map(),
-    activeSlug: null,  // the mission currently being featured (closeup or hex highlight)
+    activeSlug: null,  // the mission currently featured in the profile panel
   },
 
   theme: 'light',
 
-  particles: [],         // { fromLng, fromLat, toLng, toLat, t, duration, missionSlug, dotCount }
-
-  closeup: {
-    visible: false,
-    missionary: null,    // full missionary object
-    weatherText: null,
-    opacity: 0,
-  },
-
-  hex: {
-    visible: false,
-    materialize: 0,      // 0..1 — drives grid + frame fade-in
-    photoReveal: 0,      // 0..1 — drives photo materialization (cyan-green stage)
-    nameReveal: 0,       // 0..1 — names + mission fade-in
-    activeSlug: null,    // which missionary is currently highlighted
-    perimeterT: 0,       // 0..1 — perimeter trace progress on active tile
-    colorBySlug: new Map(), // slug → 0..1 mono→color amount
-    carouselIndex: new Map(), // slug → current photo index for active highlight
-  },
+  particles: [],         // { interp, missionSlug, startedAt, duration, dotCount }
 };
 
 export function ensureMissionEntry(slug) {

@@ -68,13 +68,11 @@ html, body {
 }
 body { font-family: var(--font-sans); }
 
-#app, #globe-root, #hex-root, #closeup-card {
+#app, #globe-root {
   position: fixed; pointer-events: none;
+  inset: 0;
 }
-#app, #globe-root, #closeup-card { inset: 0; }
 #globe-root { z-index: 1; }
-#hex-root { z-index: 2; }
-#closeup-card { z-index: 4; }
 
 #globe-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 /* 3D shader globe (color mode) — sits beneath the 2D overlay canvas. */
@@ -139,473 +137,295 @@ body { font-family: var(--font-sans); }
 }
 @keyframes blink { 50% { opacity: 0.25; } }
 
-/* ---------- Hex field ---------- */
-#hex-root {
-  /* Push hex further right; give breathing room between globe and field. */
-  position: fixed; top: 0; bottom: 0; left: 54%; right: 0;
-  overflow: hidden;
-  opacity: 0; transition: opacity 0.5s ease;
-  /* Radial vignette — field fades out to the void on all sides. */
-  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 50% 50%,
-    #000 35%, rgba(0,0,0,0.65) 70%, transparent 100%);
-          mask-image: radial-gradient(ellipse 70% 80% at 50% 50%,
-    #000 35%, rgba(0,0,0,0.65) 70%, transparent 100%);
-}
-#hex-root.visible { opacity: 1; }
-
-.hex-field {
-  position: absolute;
-  /* Anchor at 50% horizontally inside the hex-root, 50% vertically.
-     Tiles are positioned relative to this point; GSAP translates the field. */
-  left: 50%; top: 50%;
-  will-change: transform;
-}
-
-/* Energy lines along the hex lattice edges between the active cell's corners
-   and the rest of the field. Plays ONCE on each highlight (the .hex-energy
-   container gets a .firing class toggled in JS), then disappears. BFS in JS
-   sets per-line:
-     --energy-opacity  : 0.8^level (loses 20% each split)
-     --gold-mix        : 100% gold at active, → 0% (cyan) by ring ~4
-     --wave-delay      : level * cross-time, so the wave fans outward in time
-   Only outward edges (level diff exactly 1) are visible — same-level lateral
-   edges are hidden so the discharge reads as a clean branching tree. */
-/* Energy is rendered as TWO layered strokes per edge.
-   - .core: short, thick, sharp head with a multi-stop glow drop-shadow.
-            Reads as a glowing droplet that punches across the hex side.
-   - .trail: longer, thinner, dimmer wake blurred behind the core. Drags
-            across the corner as the next ring's core lights up.
-   Both layers' dashoffsets are JS-animated; the trail lags so its leading
-   edge is co-aligned with the core's leading edge. */
-.hex-energy .energy-line {
-  fill: none;
-  stroke-linecap: round;
-  pointer-events: none;
-  opacity: 0;
-}
-.hex-energy .energy-line.core {
-  stroke: color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent));
-  stroke-width: 5;
-  stroke-dasharray: 18 9999;
-  stroke-dashoffset: 18;
-  /* Three drop-shadow stops give the "core + falloff" feel: a hot 4 px
-     halo, a soft 10 px bloom, and a diffuse 22 px atmosphere. */
-  filter:
-    drop-shadow(0 0  4px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)))
-    drop-shadow(0 0 10px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)))
-    drop-shadow(0 0 22px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
-}
-.hex-energy .energy-line.trail {
-  stroke: color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent));
-  stroke-width: 3;
-  stroke-dasharray: 110 9999;
-  stroke-dashoffset: 110;
-  /* Slight stroke blur plus its own halo, so the wake looks like ionized air
-     trailing the head rather than a parallel line. */
-  filter:
-    blur(1.5px)
-    drop-shadow(0 0 5px color-mix(in srgb, var(--gold) var(--gold-mix, 0%), var(--accent)));
-}
-.hex-energy.firing .energy-line.core  { opacity: var(--energy-opacity, 1); }
-.hex-energy.firing .energy-line.trail { opacity: calc(var(--energy-opacity, 1) * 0.32); }
-
-/* Radial energy burst emitted by the active cell. Lives in fieldEl coords
-   so it inherits the field translate just like the tiles do. */
-.energy-burst {
-  position: absolute;
-  width: 80px; height: 80px;
-  margin: 0;
-  border-radius: 50%;
-  border: 2px solid var(--gold);
-  transform: translate(-50%, -50%) scale(0.5);
-  pointer-events: none;
-  opacity: 0;
-  filter: drop-shadow(0 0 10px rgba(var(--gold-rgb), 0.55));
-  z-index: 4;
-}
-.energy-burst.on {
-  animation: burst-out 1.6s ease-out 1 forwards;
-}
-@keyframes burst-out {
-  0%   { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
-  8%   { transform: translate(-50%, -50%) scale(0.7); opacity: 0.95; border-width: 3px; }
-  100% { transform: translate(-50%, -50%) scale(7); opacity: 0; border-width: 1px; }
-}
-
-.hex-tile {
-  position: absolute;
-  --colorize: 0;
-  --dist-opacity: 1;
-  transform-origin: center center;
-}
-
-/* Empty surround tiles: just an outline, faded by distance from center. */
-.hex-tile.empty {
-  opacity: 0;
-  transition: opacity 0.55s ease var(--stagger, 0ms);
-}
-#hex-root.show-frames .hex-tile.empty {
-  opacity: var(--dist-opacity, 0.16);
-  transition: opacity 0.6s ease;
-}
-
-/* Filled (missionary) tiles. Initial state for the materialize-in transition. */
-.hex-tile.filled {
-  opacity: 0;
-  transform: translateY(10px) scale(0.93);
-  transition:
-    opacity 0.55s ease var(--stagger, 0ms),
-    transform 0.55s cubic-bezier(.2,.8,.2,1) var(--stagger, 0ms);
-}
-#hex-root.show-frames .hex-tile.filled {
-  opacity: var(--dist-opacity, 1);
-  transform: scale(1);
-  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.2,.8,.2,1);
-}
-/* Every hex renders at the SAME size — the active missionary is emphasised by
-   the cluster perimeter highlight, not by magnification. Scaling the active
-   tile made it bigger than its neighbours and shrank the gaps around it
-   (most visible on the flag hex), so spacing/size are now uniform. */
-#hex-root.show-frames .hex-tile.filled.arriving {
-  transition: opacity 0.6s ease, transform 1.2s cubic-bezier(.2,.8,.2,1);
-  z-index: 4;
-}
-
-/* Photo layer */
-.hex-photo {
-  position: absolute; inset: 8%;
-  background: rgba(var(--ink-rgb), 0.08);
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0;
-  transition: opacity 0.7s ease var(--stagger, 0ms);
-}
-#hex-root.show-photos .hex-photo { opacity: 1; }
-.hex-photo img {
-  width: 100%; height: 100%; object-fit: cover;
-  filter: grayscale(1) brightness(0.9) sepia(0.35) hue-rotate(135deg) saturate(2.2);
-  transition: filter 0.9s ease, opacity 0.25s ease;
-}
-.hex-tile.colorize .hex-photo img { filter: none; }
-
-.hex-photo.silhouette { background: var(--silhouette-bg); }
-.hex-photo.silhouette svg {
-  width: 55%; height: 55%; opacity: 0.7;
-  fill: rgba(255,255,255,0.78);
-}
-
-/* ----- Hex frame SVG layers (glass + energy + base + active) ----- */
-.hex-frame {
-  position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
-  overflow: visible; /* let drop-shadow + dash glow extend past the bbox */
-  /* No animations here — all motion lives in the SPACES between hexes
-     (see .hex-energy below) so person tiles read as still glass panes. */
-}
-
-/* Glass pane fill — translucent gradient lit from above. */
-.hex-frame .glass-fill {
-  fill: url(#hex-glass);
-  stroke: none;
-}
-.hex-tile.empty .hex-frame .glass-fill { fill: url(#hex-glass-empty); }
-
-/* Thin clean base stroke. */
-.hex-frame .frame-base {
-  fill: none;
-  stroke: rgba(var(--accent-rgb), 0.85);
-  stroke-width: 1.4;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 1px rgba(var(--accent-rgb), 0.45));
-}
-.hex-tile.empty .hex-frame .frame-base {
-  stroke: rgba(var(--accent-rgb), 0.42);
-  stroke-width: 0.9;
-  filter: none;
-}
-
-/* Per-hex perimeter pulses are OFF by default — only the active cell shows
-   one, so the field reads as still hexes with energy flowing in the spaces
-   BETWEEN them (see .hex-connectors below). */
-.hex-frame .frame-energy {
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-dasharray: 6 340.4;
-  stroke-dashoffset: 0;
-  filter: drop-shadow(0 0 3px rgba(var(--gold-rgb), 0.7));
-  opacity: 0;
-}
-@keyframes hex-energy {
-  from { stroke-dashoffset: 0; }
-  to   { stroke-dashoffset: -346.41; }
-}
-
-/* Hidden by default; gold glow appears on active. */
-.hex-frame .frame-glow {
-  fill: none;
-  stroke: rgba(var(--gold-rgb), 0.5);
-  stroke-width: 6;
-  filter: blur(2px);
-  opacity: 0;
-  transition: opacity 0.45s ease;
-}
-
-/* Active bright gold border drawn on top of the base stroke. */
-.hex-frame .frame-active {
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 1.8;
-  opacity: 0;
-  transition: opacity 0.45s ease;
-}
-
-/* Active (center, settled) — edges stay highlighted with a steady pulse.
-   .arriving suppresses these so the cell is plain while moving in. */
-/* The active missionary's hex keeps only its slight magnification (set
-   above). Its gold cast and per-hex border/glow/pulse are gone — the
-   highlight now lives on the shared cluster perimeter (see below). The
-   frame-glow / frame-active / frame-energy layers stay in the markup but
-   are never shown. */
-.hex-tile.filled.active:not(.arriving) {
+/* ---------- Missionary profile panel (profile.js) ----------
+   One DOM panel on the right while the globe sits left. Cost model: opacity /
+   transform transitions only — no SVG filters, blur or mask-image, so it stays
+   smooth on TV GPUs. Only the globe canvas redraws every frame. */
+#profile {
+  position: fixed;
   z-index: 3;
-}
-
-/* ----- Cluster perimeter highlight -----
-   One running gold light traced around the combined outer edge of the active
-   missionary's hexes, treated as a single shape. Lives in field coords. */
-.cluster-outline { z-index: 5; }
-/* Steady perimeter — thickened 3× (was 2). */
-.cluster-outline .cl-base {
-  fill: none;
-  stroke: rgba(var(--gold-rgb), 0.40);
-  stroke-width: 6;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 4px rgba(var(--gold-rgb), 0.35));
-}
-/* Travelling comet body — a stack of overlapping segments whose inline
-   opacity fades the tail from full (front half) to nothing (tail end). Each
-   carries a soft gold glow that fades with it. */
-.cluster-outline .cl-trail {
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter:
-    drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.85))
-    drop-shadow(0 0 15px rgba(var(--gold-rgb), 0.5));
-}
-/* Bright leading tip — hot white-gold core with an intense glow, so the
-   running light reads as a comet head leading its tail. */
-.cluster-outline .cl-head {
-  fill: none;
-  stroke: #fff6da;
-  stroke-width: 8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter:
-    drop-shadow(0 0 7px rgba(var(--gold-rgb), 1))
-    drop-shadow(0 0 18px rgba(var(--gold-rgb), 0.85))
-    drop-shadow(0 0 40px rgba(var(--gold-rgb), 0.55));
-}
-
-/* While the cluster highlight is active, the cluster's own hexes show only a
-   faint neutral base outline (no accent glow) so their interior edges recede
-   and the shared perimeter is the only highlight. */
-#hex-root.cluster-on .hex-tile.filled.active .hex-frame .frame-base,
-#hex-root.cluster-on .hex-tile.info .hex-frame .frame-base {
-  stroke: rgba(var(--ink-rgb), 0.16);
-  stroke-width: 0.9;
-  filter: none;
-}
-#hex-root.cluster-on .hex-tile.info .hex-frame .glass-fill {
-  fill: url(#hex-glass-empty);
-}
-
-/* Name + mission used to be drawn around the tile edges; they now live in the
-   identity info hex to the left of the photo (see below). */
-
-/* ---------- Info hexes ----------
-   Empty cells adjacent to the active tile light up with the missionary's
-   details after the slam. Frames brighten, glass tints accent, and the text
-   decodes in via JS glyph-scramble. */
-.hex-tile.info {
-  opacity: 1 !important;   /* overrides the distance fade on empties */
-  transition: opacity 0.45s ease var(--info-delay, 0ms);
-}
-.hex-tile.info .hex-frame .frame-base {
-  stroke: rgba(var(--accent-rgb), 0.85);
-  stroke-width: 1.6;
-  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.35));
-}
-.hex-tile.info .hex-frame .glass-fill {
-  fill: url(#hex-glass);
-}
-.info-content {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 18% 16%;
-  text-align: center;
-  font-family: var(--font-mono);
+  /* Sized to its content and vertically centred between the HUD bars. */
+  top: 0; bottom: 0;
+  margin: auto 0;
+  height: fit-content;
+  max-height: calc(100vh - 2 * clamp(56px, 6vh, 110px));
+  left: 52%;
+  right: 4%;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.9rem, 2vh, 2.2rem);
+  padding: clamp(1.1rem, 1.6vw, 2.6rem);
+  font-family: var(--font-sans);
   color: var(--ink);
-  animation: info-pop 0.45s cubic-bezier(.2,.8,.2,1) var(--info-delay, 0ms) backwards;
+  background: rgba(var(--bg-rgb), 0.86);
+  border: 1px solid var(--ink-ghost);
   pointer-events: none;
+  /* Closed until the launch finishes; opens alongside the globe's slide left. */
+  opacity: 0;
+  transform: translateX(3vw);
+  transition: opacity 0.9s ease, transform 1.1s cubic-bezier(.2,.8,.2,1);
 }
-@keyframes info-pop {
-  from { opacity: 0; transform: scale(0.86); }
-  to   { opacity: 1; transform: scale(1); }
+#profile.open { opacity: 1; transform: none; }
+
+/* Corner brackets — the HUD "frame" without any filters. */
+#profile::before, #profile::after {
+  content: '';
+  position: absolute;
+  width: 28px; height: 28px;
+  border: 0 solid var(--ink);
 }
-.info-kicker {
+#profile::before { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
+#profile::after  { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+
+/* ---------- Staggered entrance (opacity + transform only) ---------- */
+.pf-in {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(.2,.8,.2,1);
+  transition-delay: calc(var(--i, 0) * 110ms);
+}
+#profile.shown .pf-in { opacity: 1; transform: none; }
+#profile.leaving .pf-in {
+  opacity: 0; transform: translateY(-8px);
+  transition-duration: 0.35s; transition-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* ---------- Header: photo | identity ---------- */
+.pf-head {
+  display: grid;
+  grid-template-columns: clamp(190px, 15vw, 380px) 1fr;
+  gap: clamp(1rem, 1.5vw, 2.4rem);
+  align-items: stretch;
+}
+.pf-photo {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  background: var(--silhouette-bg);
+  border: 1px solid var(--ink);
+  overflow: hidden;
+}
+.pf-photo img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+.pf-photo img.on { opacity: 1; }
+.pf-photo .silhouette {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.pf-photo .silhouette svg { width: 55%; height: 55%; fill: rgba(255,255,255,0.75); }
+/* Photo counter + dots for missionaries with more than one picture. */
+.pf-photo-meta {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.45rem 0.6rem;
+  font-family: var(--font-mono);
   font-size: clamp(0.55rem, 0.55vw, 0.85rem);
-  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0));
+}
+.pf-dots { display: flex; gap: 5px; }
+.pf-dots i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  transition: background 0.3s;
+}
+.pf-dots i.on { background: var(--gold); }
+
+.pf-id {
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 0;
+}
+.pf-kicker, .pf-label {
+  font-family: var(--font-mono);
+  font-size: clamp(0.58rem, 0.58vw, 0.9rem);
   letter-spacing: 0.3em;
   color: var(--accent);
-  min-height: 1.2em;
-  margin-bottom: 0.5em;
 }
-.info-kicker::after {
-  content: '';
-  display: block;
-  width: 2.2em; height: 1px;
-  margin: 0.45em auto 0;
-  background: rgba(var(--accent-rgb), 0.6);
-}
-.info-body {
-  font-size: clamp(0.6rem, 0.62vw, 0.95rem);
-  line-height: 1.45;
-  white-space: pre-line;
-  min-height: 2.5em;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-}
-
-/* Identity hex (left of the photo): name large + bold over the mission. */
-.info-content.identity { padding: 16% 12%; justify-content: center; }
-.id-name {
-  font-size: clamp(0.8rem, 1.05vw, 1.55rem);
+.pf-name {
+  margin: 0.45rem 0 0.2rem;
+  font-size: clamp(1.9rem, 2.9vw, 4.6rem);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.12;
-  color: var(--ink);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
   text-wrap: balance;
+  min-height: 1.05em;
 }
-.id-name::after {
-  content: '';
-  display: block;
-  width: 2.6em; height: 2px;
-  margin: 0.5em auto;
+.pf-rule {
+  width: 3.2em; height: 2px;
+  margin: 0.6rem 0 0.9rem;
   background: var(--gold);
-  box-shadow: 0 0 8px rgba(var(--gold-rgb), 0.6);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.7s cubic-bezier(.2,.8,.2,1) 0.35s;
 }
-.id-mission {
-  font-size: clamp(0.55rem, 0.6vw, 0.92rem);
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  line-height: 1.35;
-  color: var(--accent);
-}
-
-/* Flag hex (right of the photo): country flag filling the hexagon. */
-.hex-flag {
-  position: absolute; inset: 8%;
-  animation: info-pop 0.5s cubic-bezier(.2,.8,.2,1) var(--info-delay, 0ms) backwards;
-  pointer-events: none;
-}
-.hex-flag img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.hex-tile.info-flag .hex-frame .frame-base {
-  stroke: rgba(var(--gold-rgb), 0.7);
-  filter: drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.3));
-}
-
-/* Gallery hex: the missionary's other photos, cross-fading on a timer, with a
-   small "+N" badge. */
-.hex-gallery {
-  position: absolute; inset: 8%;
-  animation: info-pop 0.5s cubic-bezier(.2,.8,.2,1) var(--info-delay, 0ms) backwards;
-  pointer-events: none;
-}
-.hex-gallery img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: opacity 0.24s ease;
-}
-.gallery-badge {
-  position: absolute; bottom: 16%; left: 0; right: 0;
-  text-align: center;
+#profile.shown .pf-rule { transform: scaleX(1); }
+.pf-flagrow {
+  display: flex; align-items: center; gap: 0.8rem;
   font-family: var(--font-mono);
-  font-size: clamp(0.55rem, 0.6vw, 0.9rem);
+  font-size: clamp(0.75rem, 0.8vw, 1.2rem);
   font-weight: 600;
-  letter-spacing: 0.18em;
-  color: var(--gold);
-  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85);
+  letter-spacing: 0.22em;
+}
+.pf-flagrow img {
+  height: clamp(26px, 2.1vw, 50px);
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border: 1px solid var(--ink-ghost);
+}
+.pf-mission {
+  margin-top: 0.7rem;
+  font-size: clamp(0.95rem, 1.05vw, 1.6rem);
+  font-weight: 500;
 }
 
-/* ---------- Closeup card ---------- */
-#closeup-card {
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; transition: opacity 0.5s ease;
-}
-#closeup-card.visible { opacity: 1; }
-.card-frame {
+/* ---------- Stat strip ---------- */
+.pf-stats {
   display: grid;
-  grid-template-columns: clamp(220px, 17vw, 380px) 1fr;
-  gap: clamp(1rem, 1.3vw, 2.5rem);
-  width: min(56vw, 920px);
-  background: rgba(var(--bg-rgb), 0.92);
-  border: 1.5px solid var(--ink);
-  padding: clamp(1rem, 1.2vw, 2rem);
-  box-shadow: 0 0 0 1px rgba(var(--ink-rgb),0.05),
-              0 16px 56px rgba(0,0,0,0.18);
-  /* No backdrop-filter: it re-blurs the continuously repainting globe canvas
-     every frame (costly on TV GPUs) and the 92% opaque fill hides it anyway. */
-  position: absolute;
-  bottom: clamp(8vh, 12vh, 18vh); right: clamp(4vw, 6vw, 9vw);
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink-ghost);
 }
-.card-frame img {
-  width: 100%; aspect-ratio: 1 / 1; object-fit: cover;
-  border: 1px solid var(--ink);
+.pf-stat {
+  padding: clamp(0.6rem, 1vh, 1.1rem) clamp(0.5rem, 0.7vw, 1.1rem);
+  border-left: 1px solid var(--ink-ghost);
 }
-.card-frame .silhouette {
-  width: 100%; aspect-ratio: 1/1; border: 1px solid var(--ink);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--ink-faint); font-size: clamp(2.5rem, 3vw, 4.5rem);
-}
-.card-body .kicker {
+.pf-stat:first-child { border-left: 0; padding-left: 0; }
+.pf-stat .v {
+  margin-top: 0.35rem;
   font-family: var(--font-mono);
-  font-size: clamp(0.65rem, 0.6vw, 0.9rem); letter-spacing: 0.32em;
-  color: var(--accent);
+  font-size: clamp(0.9rem, 1.05vw, 1.6rem);
+  font-weight: 600;
+  white-space: nowrap;
 }
-.card-body h2 {
-  margin: 0.3rem 0;
-  font-size: clamp(1.4rem, 1.5vw, 2.4rem);
-  font-weight: 700;
-}
-.card-body .mission {
+.pf-stat .s {
+  margin-top: 0.15rem;
   font-family: var(--font-mono);
-  font-size: clamp(0.78rem, 0.7vw, 1.1rem);
+  font-size: clamp(0.55rem, 0.55vw, 0.85rem);
+  color: var(--ink-faint);
+  letter-spacing: 0.08em;
+}
+
+/* ---------- Text blocks ---------- */
+.pf-blocks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(0.8rem, 1.2vw, 2rem);
+}
+.pf-block p {
+  margin: 0.45rem 0 0;
+  font-size: clamp(0.95rem, 1.1vw, 1.7rem);
+  line-height: 1.5;
+}
+.pf-block.empty p { color: var(--ink-faint); font-style: italic; }
+/* About box: a 6-line window. A longer bio (some are a full paragraph plus a
+   scripture) auto-scrolls inside it — profile.js animates the <p>'s transform,
+   which runs on the compositor, so it costs nothing per frame on the TV. */
+.pf-bio-wrap {
+  position: relative;
+  margin-top: 0.45rem;
+  font-size: clamp(0.95rem, 1.1vw, 1.7rem);
+  max-height: calc(6 * 1.5em);
+  overflow: hidden;
+}
+.pf-bio-wrap p.pf-bio { margin: 0; font-size: inherit; will-change: transform; }
+/* "More below" cue while text is hidden; fades once the scroll reaches the end. */
+.pf-bio-fade {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 1.6em;
+  background: linear-gradient(rgba(var(--bg-rgb), 0), rgba(var(--bg-rgb), 0.95));
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.pf-bio-wrap.overflows .pf-bio-fade { opacity: 1; }
+.pf-bio-wrap.overflows.at-end .pf-bio-fade { opacity: 0; }
+
+/* ---------- Form-sourced facts: serving since / language / home ward ---------- */
+.pf-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(0.5rem, 0.8vw, 1.2rem);
+  padding-top: clamp(0.6rem, 1vh, 1.1rem);
   border-top: 1px solid var(--ink-ghost);
-  padding-top: 0.6rem; margin-top: 0.4rem;
 }
-.card-body .bio {
-  font-size: clamp(0.9rem, 0.85vw, 1.25rem); line-height: 1.5;
-  margin: 1rem 0;
-}
-.card-body .fact, .card-body .weather {
+.pf-facts .v {
+  margin-top: 0.35rem;
   font-family: var(--font-mono);
-  font-size: clamp(0.7rem, 0.65vw, 0.95rem);
-  display: flex; gap: 0.7rem;
-  margin-top: 0.4rem;
-  border-top: 1px dashed var(--ink-ghost);
-  padding-top: 0.4rem;
+  font-size: clamp(0.9rem, 1.05vw, 1.6rem);
+  font-weight: 600;
 }
-.card-body .fact span, .card-body .weather span {
-  color: var(--accent); letter-spacing: 0.2em; flex: 0 0 auto;
+.pf-facts .v.none {
+  font-family: var(--font-sans);
+  font-size: clamp(0.8rem, 0.85vw, 1.3rem);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-faint);
+}
+.pf-facts .s {
+  margin-top: 0.15rem;
+  font-family: var(--font-mono);
+  font-size: clamp(0.55rem, 0.55vw, 0.85rem);
+  color: var(--ink-faint);
+  letter-spacing: 0.08em;
+}
+/* How far through the mission they are. */
+.pf-term {
+  margin-top: 0.45rem;
+  height: 3px;
+  background: var(--ink-ghost);
+}
+.pf-term i {
+  display: block; height: 100%;
+  background: var(--gold);
+  transform-origin: left;
+}
+
+/* ---------- Roster rail: where we are in the list ----------
+   One segment per missionary. Shown = solid ink, current = gold and fills
+   over the hold, still to come = faint. Reads like a story progress bar. */
+.pf-roster { margin-top: auto; }
+.pf-roster-top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 0.55rem;
+  font-family: var(--font-mono);
+  font-size: clamp(0.58rem, 0.6vw, 0.95rem);
+  letter-spacing: 0.25em;
+  color: var(--ink-faint);
+}
+.pf-roster-top .pos b {
+  font-size: 1.7em;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+}
+.pf-roster-top .next { color: var(--accent); }
+.pf-segs {
+  display: flex;
+  gap: clamp(3px, 0.3vw, 6px);
+  align-items: center;
+}
+.pf-segs i {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  background: var(--ink-ghost);
+  overflow: hidden;
+}
+.pf-segs i.done { background: rgba(var(--ink-rgb), 0.7); }
+.pf-segs i.cur {
+  height: 8px;
+  background: rgba(var(--gold-rgb), 0.3);
+}
+.pf-segs i.cur b {
+  position: absolute; inset: 0;
+  background: var(--gold);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+.pf-segs i.cur b.run {
+  transform: scaleX(1);
+  transition: transform var(--hold, 14s) linear;
 }
