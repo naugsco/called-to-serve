@@ -82,10 +82,10 @@ function serving(m) {
   return { label, sub: `Month ${elapsed} of ${total}`, frac: elapsed / total };
 }
 
-// Bio too long for its 6-line window → scroll it once, slowly, so the last
+// Bio too long for its 4-line window → scroll it once, slowly, so the last
 // line is reached shortly before the hold ends. Measured AFTER the entrance
 // transitions and web-font load, so the overflow height is final.
-const BIO_SCROLL_PX_PER_SEC = 22;   // comfortable reading pace at TV distance
+const BIO_SCROLL_LINES_PER_SEC = 0.65;   // reading pace, independent of screen size
 function scheduleBioScroll(holdSec) {
   const wrap = panel.querySelector('.pf-bio-wrap');
   const text = wrap.querySelector('.pf-bio');
@@ -97,7 +97,8 @@ function scheduleBioScroll(holdSec) {
     wrap.classList.add('overflows');
     // Time left after the start delay, keeping T.profileBioEndPause at the end.
     const available = holdSec - T.profileBioDelay - T.profileBioEndPause;
-    const duration = Math.max(1, Math.min(overflow / BIO_SCROLL_PX_PER_SEC, available));
+    const pxPerSec = BIO_SCROLL_LINES_PER_SEC * parseFloat(getComputedStyle(text).lineHeight);
+    const duration = Math.max(1, Math.min(overflow / pxPerSec, available));
     const anim = text.animate(
       [{ transform: 'translateY(0)' }, { transform: `translateY(${-overflow}px)` }],
       { duration: duration * 1000, easing: 'ease-in-out', fill: 'forwards' },
@@ -111,7 +112,6 @@ export function showProfile(m, idx, list, origin, holdSec) {
   clearTimeout(bioTimer);
   const photos = m.photos?.length ? m.photos : [];
   const km = distanceKm(origin, { lat: m.missionLat, lng: m.missionLng });
-  const where = [m.missionCity, m.missionCountry].filter(Boolean).join(', ');
   const sv = serving(m);
   const missing = '<div class="v none">Not submitted yet</div>';
   const next = list[(idx + 1) % list.length];
@@ -140,7 +140,7 @@ export function showProfile(m, idx, list, origin, holdSec) {
     <div class="pf-stats pf-in" style="--i:4">
       <div class="pf-stat"><div class="pf-label">FROM HOME</div>
         <div class="v">${Math.round(km).toLocaleString()} km</div>
-        <div class="s">${Math.round(km * 0.621371).toLocaleString()} mi from Vancouver</div></div>
+        <div class="s">${Math.round(km * 0.621371).toLocaleString()} mi</div></div>
       <div class="pf-stat"><div class="pf-label">HEADQUARTERS</div>
         <div class="v">${esc(m.missionCity || '—')}</div>
         <div class="s">${esc(m.missionCountry || '')}</div></div>
@@ -153,8 +153,8 @@ export function showProfile(m, idx, list, origin, holdSec) {
 
     <div class="pf-blocks">
       <div class="pf-block pf-in ${m.fact ? '' : 'empty'}" style="--i:5">
-        <div class="pf-label">FIELD NOTE · ${esc(where.toUpperCase())}</div>
-        <p>${esc(m.fact || 'No field note for this mission yet.')}</p>
+        <div class="pf-label">FIELD NOTE · ${esc((m.missionCity || m.missionCountry || '').toUpperCase())}</div>
+        <p class="pf-note">${esc(m.fact || 'No field note for this mission yet.')}</p>
       </div>
       <div class="pf-block pf-in ${m.bio ? '' : 'empty'}" style="--i:6">
         <div class="pf-label">ABOUT</div>
@@ -198,8 +198,8 @@ export function showProfile(m, idx, list, origin, holdSec) {
     const v = panel.querySelector('.pf-wx');
     if (!v || !v.isConnected) return;
     if (wx) {
-      decode(v, `${wx.c}°C / ${wx.f}°F`, 500);
-      panel.querySelector('.pf-wx-desc').textContent = wx.desc;
+      decode(v, `${wx.c}°C`, 500);
+      panel.querySelector('.pf-wx-desc').textContent = `${wx.f}°F · ${wx.desc}`;
     } else v.textContent = 'NO SIGNAL';
   });
 

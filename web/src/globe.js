@@ -19,20 +19,10 @@ let last = performance.now();
 
 // Render styles:
 //   hud     — monochrome outline HUD (light/dark themes)
-//   color   — 3D shader globe (globe3d.js) renders beneath; this canvas only
-//             draws overlays (pins, halos, particles)
 //   antique — old-world parchment: botanical country washes, ink lines
 function renderStyle() {
-  const cl = document.body.classList;
-  if (cl.contains('antique')) return 'antique';
-  if (cl.contains('color')) return 'color';
-  return 'hud';
+  return document.body.classList.contains('antique') ? 'antique' : 'hud';
 }
-
-// Hook registered by main.js when color mode is active — keeps three.js out
-// of the bundle until someone actually switches to the color globe.
-let globe3dSync = null;
-export function setGlobe3DSync(fn) { globe3dSync = fn; }
 
 // Botanical washes for the antique style — muted tints from hand-colored
 // atlases. Assigned per-country by hashing the feature id so they're stable.
@@ -132,14 +122,7 @@ function draw(now) {
 
   const style = renderStyle();
 
-  if (style === 'color') {
-    // The 3D shader globe (globe3d.js) draws the planet on its own canvas
-    // beneath this one — here we only render the overlays on top.
-    globe3dSync?.({
-      lambda: g.lambda, rotateLat: g.rotateLat,
-      scalePx: r, cx, cy, w, h, now,
-    });
-  } else if (style === 'antique') {
+  if (style === 'antique') {
     drawAntiqueBase(now, cx, cy, r, unit);
   } else {
     drawHudBase(now, cx, cy, r, unit);

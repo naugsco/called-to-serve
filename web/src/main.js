@@ -1,84 +1,42 @@
 // Entry point — load manifest, mount globe + profile panel, kick off loop.
 
 import { state } from './state.js';
-import { mountGlobe, refreshColors, setGlobe3DSync } from './globe.js';
+import { mountGlobe, refreshColors } from './globe.js';
 import { mountProfile } from './profile.js';
 import { runLoop, advance } from './loop.js';
 
 const app = document.getElementById('app');
 
-// The visible toggle button cycles the three "map" styles. The COLOR 3D globe
-// is intentionally NOT in this list — it's the hidden gem, revealed by
-// clicking the word SERVE in the brand.
+// The toggle button cycles the three map styles.
 const THEME_CYCLE = ['light', 'dark', 'antique'];
 const THEME_LABEL = { light: 'LIGHT', dark: 'DARK', antique: 'OLD WORLD' };
-let theme = 'light';   // light | dark | antique  (driven by the toggle button)
-let colorOn = false;   // 3D globe overlay        (driven by clicking SERVE)
-let globeRoot = null;
-let globe3dModule = null; // lazy-loaded ./globe3d.js
+let theme = 'light';
 
 function nextTheme(cur) {
   return THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length];
 }
 
-// Single source of truth: paint body classes + manage the 3D globe from the
-// current { theme, colorOn } state. COLOR wins over the map style while on.
-async function applyState() {
-  document.body.classList.toggle('color', colorOn);
-  // Color rides on the dark chrome palette (deep-space background).
-  document.body.classList.toggle('dark', colorOn || theme === 'dark');
-  document.body.classList.toggle('antique', !colorOn && theme === 'antique');
-  state.theme = colorOn ? 'color' : theme;
+function applyState() {
+  document.body.classList.toggle('dark', theme === 'dark');
+  document.body.classList.toggle('antique', theme === 'antique');
+  state.theme = theme;
 
   const btn = document.getElementById('theme-toggle');
   if (btn) btn.textContent = THEME_LABEL[nextTheme(theme)];
   refreshColors();
-
-  if (colorOn) {
-    // Lazy-load three.js + the shader globe only when color mode activates.
-    if (!globe3dModule) globe3dModule = await import('./globe3d.js');
-    if (!document.getElementById('globe3d-canvas') && globeRoot) {
-      // Insert BEFORE the 2D canvas so overlays paint on top.
-      const cv = globe3dModule.mountGlobe3D(globeRoot);
-      globeRoot.insertBefore(cv, globeRoot.firstChild);
-    }
-    setGlobe3DSync(globe3dModule.syncGlobe3D);
-  } else {
-    setGlobe3DSync(null);
-    if (globe3dModule && document.getElementById('globe3d-canvas')) {
-      globe3dModule.disposeGlobe3D();
-    }
-  }
 }
 
 function initTheme() {
   const params = new URLSearchParams(location.search);
   const savedTheme = params.get('theme') || localStorage.getItem('cts:theme') || 'light';
   theme = THEME_CYCLE.includes(savedTheme) ? savedTheme : 'light';
-  colorOn = (params.get('color') ?? localStorage.getItem('cts:color')) === '1';
   applyState();
 
-  // Toggle button: step through light → dark → old world. Always leaves the
-  // hidden color globe (the button is for the normal map styles).
   const btn = document.getElementById('theme-toggle');
   if (btn) {
     btn.addEventListener('click', () => {
-      colorOn = false;
       theme = nextTheme(theme);
-      try {
-        localStorage.setItem('cts:theme', theme);
-        localStorage.setItem('cts:color', '0');
-      } catch {}
-      applyState();
-    });
-  }
-
-  // Hidden feature: clicking the word SERVE toggles the COLOR 3D globe.
-  const word = document.getElementById('antique-word');
-  if (word) {
-    word.addEventListener('click', () => {
-      colorOn = !colorOn;
-      try { localStorage.setItem('cts:color', colorOn ? '1' : '0'); } catch {}
+      try { localStorage.setItem('cts:theme', theme); } catch {}
       applyState();
     });
   }
@@ -95,7 +53,7 @@ async function main() {
   if (!res.ok) throw new Error(`Manifest load failed: HTTP ${res.status}`);
   state.data = await res.json();
 
-  globeRoot = document.createElement('div');
+  const globeRoot = document.createElement('div');
   globeRoot.id = 'globe-root';
   app.append(globeRoot);
 
