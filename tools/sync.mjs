@@ -172,6 +172,10 @@ const unmatched = [];
 const missionaries = [];
 for (const row of sourceRows) {
   if (!row.mission) {
+    if (!/^(elder|sister)\b/i.test(row.name || '')) {
+      console.warn(`[sync] WARN: skipping roster row that isn't a missionary: "${row.raw || row.name}"`);
+      continue;
+    }
     // Roster row that didn't parse — column A had no recognisable mission.
     unmatched.push({ raw: row.raw || row.name, why: 'no mission found in cell', name: row.name });
     continue;
