@@ -9,7 +9,7 @@ import { fetchWeather } from './weather.js';
 import { T } from './timings.js';
 
 const base = import.meta.env.BASE_URL || '/';
-const url = p => base + String(p).replace(/^\//, '');
+export const url = p => base + String(p).replace(/^\//, '');
 
 let panel = null;
 let photoTimer = null;
@@ -20,6 +20,8 @@ export function mountProfile() {
   panel.id = 'profile';
   document.body.append(panel);
 }
+
+export const getPanel = () => panel;
 
 export function openProfile()  { panel.classList.add('open'); }
 export function closeProfile() {
@@ -36,7 +38,7 @@ export function leaveProfile() {
 }
 
 const DECODE_GLYPHS = '█▓▒░<>/\\|=+*#%&@01';
-function decode(el, text, durMs = 700, delayMs = 0) {
+export function decode(el, text, durMs = 700, delayMs = 0) {
   const start = performance.now() + delayMs;
   const frame = now => {
     if (!el.isConnected) return;               // panel rebuilt meanwhile
@@ -63,9 +65,9 @@ function distanceKm(a, b) {
 }
 const fmtLat = v => `${Math.abs(v).toFixed(2)}°${v >= 0 ? 'N' : 'S'}`;
 const fmtLng = v => `${Math.abs(v).toFixed(2)}°${v >= 0 ? 'E' : 'W'}`;
-const esc = s => String(s).replace(/[&<>"']/g, c =>
+export const esc = s => String(s).replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SILHOUETTE = `<div class="silhouette"><svg viewBox="0 0 100 100"><circle cx="50" cy="40" r="18"/><path d="M14 100 C14 70, 86 70, 86 100 Z"/></svg></div>`;
+export const SILHOUETTE = `<div class="silhouette"><svg viewBox="0 0 100 100"><circle cx="50" cy="40" r="18"/><path d="M14 100 C14 70, 86 70, 86 100 Z"/></svg></div>`;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // "Serving since" from the form's start date (YYYY-MM-DD). Full-time missions
@@ -183,6 +185,7 @@ export function showProfile(m, idx, list, origin, holdSec) {
     </div>
   `;
 
+  panel.classList.remove('pr');
   panel.classList.remove('leaving', 'shown');
   void panel.offsetWidth;                       // restart the entrance transitions
   panel.classList.add('shown');

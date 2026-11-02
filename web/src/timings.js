@@ -19,6 +19,13 @@ export const T = {
   profileBioDelay: sec(3),      // before a too-long bio starts scrolling
   profileBioEndPause: sec(1.5), // bio rests on its last line before the next missionary
   profileClose: sec(2.4),       // globe recentres as the panel closes
+
+  // Stake tour (prospective missionaries)
+  stakeZoomIn: sec(5),          // world → whole-stake view
+  stakeOverview: sec(5),        // rest on the stake outline, wards and buildings
+  stakeFly: sec(3.6),           // stake/building → next building
+  stakeHold: sec(14),           // time on each prospective missionary
+  stakeZoomOut: sec(4.5),       // last building → back out to the globe
 };
 
 export const SPEED = {
@@ -33,3 +40,11 @@ export const VIEW = {
 };
 
 export const VANCOUVER = { lng: -123.1207, lat: 49.2827 };
+
+// Camera zoom for the stake tour, as a multiple of the world-view globe scale
+// (screen px per km scales with min(w,h), so these hold on any screen).
+export const STAKE_VIEW = {
+  center: { lng: -122.875, lat: 49.77 },   // middle of the stake boundary
+  scale: 62,                               // whole stake fits the height with margin
+  buildingScale: 1650,                     // ~7 km of street map around a meetinghouse
+};

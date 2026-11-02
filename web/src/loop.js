@@ -14,9 +14,11 @@
 
 import gsap from 'gsap';
 import { state, ensureMissionEntry } from './state.js';
-import { T, SPEED, VIEW, VANCOUVER } from './timings.js';
+import { T, SPEED, VIEW, VANCOUVER, STAKE_VIEW } from './timings.js';
 import { spawnParticleToMission } from './globe.js';
 import { openProfile, closeProfile, leaveProfile, showProfile } from './profile.js';
+import { showProspect, stopProspect } from './prospect.js';
+import { ensureLocal } from './stake.js';
 
 const wait = (s) => new Promise(r => setTimeout(r, s * 1000));
 
@@ -58,10 +60,20 @@ async function centerOn(lng, lat, dur, ease = 'power2.inOut') {
 
 // opts.startAt: jump straight to that missionary (skips intro/launch).
 // opts.freeze:  stop on the first missionary shown (review/debug).
-export async function runLoop({ missionaries, origin, startAt = null, freeze = false }) {
+export async function runLoop({ missionaries, origin, prospects = [], startAt = null, freeze = false, stakeOnly = false }) {
   const list = missionaries.filter(m => m.missionLat != null);
   if (!list.length) throw new Error('No missionaries with mission coordinates to show');
   let first = startAt == null ? null : Math.max(0, Math.min(startAt, list.length - 1));
+  const tour = prospects.length > 0 && !!state.stake.data;
+
+  // ?act=stake — jump straight to the stake tour (review/debug).
+  if (stakeOnly && tour) {
+    for (const m of list) ensureMissionEntry(m.missionSlug).highlighted = true;
+    state.phase = 'open';
+    await open();
+    await stakeTour(prospects);
+    first = null;
+  }
 
   while (true) {
     if (first == null) {
@@ -82,8 +94,13 @@ export async function runLoop({ missionaries, origin, startAt = null, freeze = f
       await hold(T.profileHold);   // FEED skips to the next missionary
     }
     first = null;
-    state.phase = 'close';
-    await close();
+    if (tour) {
+      // The tour ends back at the world view, so it replaces close().
+      await stakeTour(prospects);
+    } else {
+      state.phase = 'close';
+      await close();
+    }
   }
 }
 
@@ -122,6 +139,93 @@ async function profile(list, i, origin) {
   centerOn(m.missionLng, m.missionLat, T.profileTurn);   // turns while the panel swaps
   await wait(T.profileSwap);
   showProfile(m, i, list, origin, T.profileHold);
+}
+
+// One continuous camera move: pan, zoom and slide the globe sideways together.
+//   dip   > 0 raises the camera mid-flight (a fly-over between nearby targets)
+//   lead  > 0 makes the pan arrive before the zoom finishes (so a world→city
+//             dive rotates to the target first, then drops in)
+function flyTo({ lng, lat, scale, centerX, dur, ease = 'power2.inOut', dip = 0, lead = 0 }) {
+  const g = state.globe;
+  const lam0 = g.lambda, lat0 = g.rotateLat, cx0 = g.centerX, ls0 = Math.log(g.scale);
+  const lam1 = lam0 + ((((-lng - lam0 + 540) % 360) + 360) % 360) - 180;
+  const lat1 = -lat, ls1 = Math.log(scale);
+  g.omega = 0;
+  const k = { t: 0 };
+  return tweenTo(k, {
+    t: 1, duration: dur, ease,
+    onUpdate() {
+      const t = k.t;
+      const p = lead ? 1 - Math.pow(1 - t, 1 + lead) : t;
+      g.lambda = lam0 + (lam1 - lam0) * p;
+      g.rotateLat = lat0 + (lat1 - lat0) * p;
+      g.centerX = cx0 + (centerX - cx0) * t;
+      g.scale = Math.exp(ls0 + (ls1 - ls0) * t - dip * Math.sin(Math.PI * t));
+    },
+  });
+}
+
+const kmBetween = (a, b) => {
+  const D = Math.PI / 180, R = 6371;
+  const dLat = (b.lat - a.lat) * D, dLng = (b.lng - a.lng) * D;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * D) * Math.cos(b.lat * D) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+
+// World view → whole stake → each prospective missionary's meetinghouse → back out.
+async function stakeTour(prospects) {
+  const S = state.stake, g = state.globe;
+  state.phase = 'stake';
+  closeProfile();
+  state.missions.activeSlug = null;
+  S.activeBuilding = null;
+
+  // 1. Dive from the globe into the stake.
+  await Promise.all([
+    flyTo({ ...STAKE_VIEW.center, scale: STAKE_VIEW.scale, centerX: 0.5, dur: T.stakeZoomIn, lead: 2 }),
+    tweenTo(S, { overlay: 1, duration: T.stakeZoomIn * 0.45, delay: T.stakeZoomIn * 0.55 }),
+  ]);
+  await wait(T.stakeOverview);
+
+  // 2. One card per person, flying to the building where their ward meets.
+  let here = STAKE_VIEW.center, atOverview = true;
+  for (let i = 0; i < prospects.length; i++) {
+    const p = prospects[i];
+    const b = S.data.buildings.find(x => x.id === p.buildingId);
+    if (!b) continue;
+    state.phase = 'stake-card';
+    if (S.activeBuilding !== b.id) {
+      leaveProfile(); stopProspect();
+      S.activeBuilding = b.id;
+      const loading = ensureLocal(b.id).catch(err => console.warn('stake map:', err.message));
+      const km = kmBetween(here, b);
+      await flyTo({
+        lng: b.lng, lat: b.lat, scale: STAKE_VIEW.buildingScale, centerX: VIEW.profileCenterX,
+        dur: T.stakeFly,
+        dip: atOverview ? 0 : Math.min(Math.log(STAKE_VIEW.buildingScale / STAKE_VIEW.scale) * 0.95, Math.log(1 + km / 3)),
+        lead: atOverview ? 1.5 : 0,
+      });
+      await loading;
+      here = b; atOverview = false;
+    } else {
+      leaveProfile(); stopProspect();
+      await wait(T.profileSwap);
+    }
+    openProfile();
+    showProspect(p, i, prospects, b, T.stakeHold);
+    await hold(T.stakeHold);           // FEED skips ahead
+  }
+
+  // 3. Back out to the globe, ready for the intro spin.
+  state.phase = 'stake-out';
+  leaveProfile(); stopProspect();
+  closeProfile();
+  await Promise.all([
+    flyTo({ lng: -g.lambda, lat: 0, scale: 1, centerX: 0.5, dur: T.stakeZoomOut }),
+    tweenTo(S, { overlay: 0, duration: T.stakeZoomOut * 0.5 }),
+  ]);
+  S.activeBuilding = null;
+  await tweenTo(g, { omega: SPEED.baseOmega, duration: 1.2, ease: 'power2.inOut' });
 }
 
 async function close() {

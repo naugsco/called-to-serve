@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-11-01T00:00:00.000Z",
+  "note": "Made-up demo cards, shown only with ?sample=1. Real data comes from prospective.json (written by tools/sync.mjs).",
+  "prospects": [
+    {
+      "slug": "jordan-sample", "name": "Jordan Sample", "group": "YM",
+      "ward": "Vancouver 1st Ward", "unitId": "vancouver-1", "buildingId": "forty-first",
+      "scripture": "I can do all things through Christ which strengtheneth me. — Philippians 4:13",
+      "interests": "Basketball, robotics club, and math",
+      "why": "I want to share what has made my family so close. I'm turning 18 next year and I've started saving and studying the Book of Mormon every morning.",
+      "inspiration": "My older brother, who served in Brazil",
+      "photos": [], "bestPhoto": null
+    },
+    {
+      "slug": "riley-example", "name": "Riley Example", "group": "YW",
+      "ward": "Vancouver 1st Ward", "unitId": "vancouver-1", "buildingId": "forty-first",
+      "scripture": "Be of good cheer; I have overcome the world. — John 16:33",
+      "interests": "Violin, biology, hiking the Grouse Grind",
+      "why": "I've felt how much peace the gospel brings, and I want other people to feel it too.",
+      "inspiration": "",
+      "photos": [], "bestPhoto": null
+    },
+    {
+      "slug": "taylor-placeholder", "name": "Taylor Placeholder", "group": "YW",
+      "ward": "Burnaby Ward", "unitId": "burnaby", "buildingId": "burnaby",
+      "scripture": "Trust in the Lord with all thine heart; and lean not unto thine own understanding. — Proverbs 3:5",
+      "interests": "Painting, English, and baking",
+      "why": "Serving a mission feels like the best way to say thank you for everything I've been given. I'm learning Korean so I can serve wherever I'm called.",
+      "inspiration": "The sister missionaries who taught my best friend",
+      "photos": [], "bestPhoto": null
+    },
+    {
+      "slug": "casey-demo", "name": "Casey Demo", "group": "YM",
+      "ward": "Coquitlam Ward", "unitId": "coquitlam", "buildingId": "coquitlam",
+      "scripture": "And if men come unto me I will show unto them their weakness. I give unto men weakness that they may be humble; and my grace is sufficient for all men that humble themselves before me. — Ether 12:27",
+      "interests": "Soccer, welding, and woodshop",
+      "why": "I want to become the kind of person who can help others. I'm not sure where I'll serve yet, but I'm ready to learn a new language and work hard.",
+      "inspiration": "My grandpa, who joined the Church as a young adult",
+      "photos": [], "bestPhoto": null
+    },
+    {
+      "slug": "morgan-test", "name": "Morgan Test", "group": "YW",
+      "ward": "Port Coquitlam Ward", "unitId": "port-coquitlam", "buildingId": "coquitlam",
+      "scripture": "For God hath not given us the spirit of fear; but of power, and of love, and of a sound mind. — 2 Timothy 1:7",
+      "interests": "Track and field, chemistry",
+      "why": "I'm still deciding, but every time I help a friend understand something about the gospel I feel certain I'm supposed to be doing more of that.",
+      "inspiration": "Our Young Women president",
+      "photos": [], "bestPhoto": null
+    },
+    {
+      "slug": "avery-sample", "name": "Avery Sample", "group": "YM",
+      "ward": "North Shore Ward", "unitId": "north-shore", "buildingId": "north-shore",
+      "scripture": "Behold, I have given unto you a commandment to be strong and of a good courage. — Joshua 1:9",
+      "interests": "Skiing at Seymour, history, and photography",
+      "why": "My dad always says the gospel is meant to be shared, not kept. I want to see it change someone's life the way it changed ours.",
+      "inspiration": "",
+      "photos": [], "bestPhoto": null
+    },
+    {
+      "slug": "quinn-example", "name": "Quinn Example", "group": "YW",
+      "ward": "Sechelt Branch", "unitId": "sechelt", "buildingId": "sechelt",
+      "scripture": "And now, my sons, remember, remember that it is upon the rock of our Redeemer, who is Christ, the Son of God, that ye must build your foundation. — Helaman 5:12",
+      "interests": "Kayaking, art, and marine biology",
+      "why": "Living in a small branch has taught me how much every person matters. I want to help people feel that they belong, wherever I'm sent.",
+      "inspiration": "Our branch president and his family",
+      "photos": [], "bestPhoto": null
+    },
+    {
+      "slug": "sky-demo", "name": "Sky Demo", "group": "YM",
+      "ward": "Squamish Branch", "unitId": "squamish", "buildingId": "squamish",
+      "scripture": "Yea, behold, I will tell you in your mind and in your heart, by the Holy Ghost, which shall come upon you and which shall dwell in your heart. Now, behold, this is the spirit of revelation. — Doctrine and Covenants 8:2–3",
+      "interests": "Mountain biking, rock climbing, physics, and playing guitar",
+      "why": "When I was fourteen I prayed about whether the Book of Mormon was true and got an answer I will never forget. Since then I have wanted to give other people the chance to ask the same question. I have been working part-time at the climbing gym to save for my mission, and I have been practicing talking with people about what I believe so that I am not nervous when the day comes. I still have a lot to learn, but I am excited to try.",
+      "inspiration": "The missionaries who taught my mom, and every missionary who has ever knocked on a door",
+      "photos": [], "bestPhoto": null
+    }
+  ]
+}

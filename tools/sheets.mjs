@@ -63,22 +63,29 @@ export async function readSubmissions() {
 // rows[0] is the header row. Returns one object per submission with a name.
 // startDateRaw is passed through untouched (string or day serial) — sync.mjs
 // parses it with dates.mjs so it can report ambiguous values by missionary.
-export function parseSubmissionRows(rows) {
-  if (!rows.length) return [];
-  const header = rows[0].map(h => String(h ?? '').trim());
+// Maps each key in `spec` to the one header column whose text matches its
+// pattern (-1 if optional and absent). Shared by every form we read.
+function locateColumns(header, spec, sheetLabel) {
   const col = {};
-  for (const [key, { re, required }] of Object.entries(SUBMISSION_COLUMNS)) {
+  for (const [key, { re, required }] of Object.entries(spec)) {
     const hits = header.flatMap((h, i) => (re.test(h) ? [i] : []));
     if (hits.length > 1) {
-      throw new Error(`Submissions sheet: ${hits.length} columns match "${key}" (${re}): ` +
+      throw new Error(`${sheetLabel}: ${hits.length} columns match "${key}" (${re}): ` +
         hits.map(i => `"${header[i]}"`).join(', '));
     }
     if (!hits.length && required) {
-      throw new Error(`Submissions sheet: no column matches "${key}" (${re}). Headers: ` +
+      throw new Error(`${sheetLabel}: no column matches "${key}" (${re}). Headers: ` +
         header.map(h => `"${h}"`).join(', '));
     }
     col[key] = hits.length ? hits[0] : -1;
   }
+  return col;
+}
+
+export function parseSubmissionRows(rows) {
+  if (!rows.length) return [];
+  const header = rows[0].map(h => String(h ?? '').trim());
+  const col = locateColumns(header, SUBMISSION_COLUMNS, 'Submissions sheet');
   const cell = (row, key) => (col[key] < 0 ? '' : row[col[key]] ?? '');
   const text = (row, key) => String(cell(row, key)).trim() || null;
   return rows.slice(1)
@@ -92,6 +99,57 @@ export function parseSubmissionRows(rows) {
       language: text(row, 'language'),
       homeWard: text(row, 'homeWard'),
     }));
+}
+
+// ---------- Prospective missionaries ----------
+// A separate Google Form (youth who are considering or preparing for a mission).
+// Columns are found by question wording, like the missionary form. Suggested
+// question titles are in the comments; the patterns are deliberately loose.
+const PROSPECTIVE_COLUMNS = {
+  name:        { re: /^name\b/i,                    required: true },   // "Name (first and last)"
+  group:       { re: /young (men|man|women|woman)/i, required: false }, // "Are you a Young Man or a Young Woman?"
+  ward:        { re: /\b(ward|branch)\b/i,          required: true },   // "Which ward or branch are you in?"
+  photo:       { re: /^photo/i,                     required: false },  // "Photo of you"
+  permission:  { re: /permission/i,                 required: true },   // parent/guardian permission
+  scripture:   { re: /scripture/i,                  required: false },  // "A favorite scripture"
+  interests:   { re: /hobb|school subject/i,        required: false },  // "Favorite hobbies or school subjects"
+  why:         { re: /\bwhy\b/i,                    required: false },  // "Why are you considering serving a mission?"
+  inspiration: { re: /inspire/i,                    required: false },  // "Who or what inspires you to serve?"
+};
+
+export async function readProspective() {
+  const csvUrl = process.env.PUBLIC_PROSPECTIVE_CSV_URL;
+  if (csvUrl) return parseProspectiveRows(await fetchCsv(csvUrl));
+  const id = process.env.PROSPECTIVE_SHEET_ID;
+  if (!id) return [];
+  const s = await client();
+  const r = await s.spreadsheets.values.get({
+    spreadsheetId: id, range: 'A:Z', valueRenderOption: 'FORMATTED_VALUE',
+  });
+  return parseProspectiveRows(r.data.values ?? []);
+}
+
+export function parseProspectiveRows(rows) {
+  if (!rows.length) return [];
+  const header = rows[0].map(h => String(h ?? '').trim());
+  const col = locateColumns(header, PROSPECTIVE_COLUMNS, 'Prospective sheet');
+  const text = (row, key) => (col[key] < 0 ? null : String(row[col[key]] ?? '').trim() || null);
+  return rows.slice(1)
+    .filter(row => text(row, 'name'))
+    .map(row => {
+      const g = text(row, 'group') || '';
+      return {
+        name: text(row, 'name'),
+        group: /women|woman|\byw\b/i.test(g) ? 'YW' : /men|man|\bym\b/i.test(g) ? 'YM' : null,
+        ward: text(row, 'ward'),
+        permission: /^y/i.test(text(row, 'permission') || ''),
+        photoUrls: col.photo < 0 ? [] : splitPhotoUrls(String(row[col.photo] ?? '')),
+        scripture: text(row, 'scripture'),
+        interests: text(row, 'interests'),
+        why: text(row, 'why'),
+        inspiration: text(row, 'inspiration'),
+      };
+    });
 }
 
 function splitPhotoUrls(cell) {

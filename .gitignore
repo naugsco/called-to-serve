@@ -7,3 +7,6 @@ web/public/images/*
 !web/public/images/.gitkeep
 tools/.secrets/
 *.log
+
+# Generated from the prospective form (teens' answers) - never commit
+web/public/prospective.json

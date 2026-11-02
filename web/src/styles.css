@@ -433,3 +433,42 @@ body { font-family: var(--font-sans); }
   transform: scaleX(1);
   transition: transform var(--hold, 14s) linear;
 }
+
+/* ---------- Prospective missionary card (prospect.js) ----------
+   Same panel as the serving-missionary profile, so it inherits the frame,
+   entrance transitions and type scale; only the inner layout differs. */
+#profile.pr .pf-head { grid-template-columns: 13.5rem minmax(0, 1fr); }
+.pr-meets {
+  margin-top: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+.pr-block { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.pr-win {
+  position: relative;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  font-size: 1.5rem;
+  line-height: 1.45;
+}
+.pr-text { margin: 0; will-change: transform; }
+.pr-win.overflows .pf-bio-fade { opacity: 1; }
+.pr-win.overflows.at-end .pf-bio-fade { opacity: 0; }
+.pr-quote .pr-win {
+  max-height: calc(3 * 1.45em);
+  padding-left: 1rem;
+  border-left: 3px solid var(--gold);
+  font-style: italic;
+}
+.pr-why .pr-win { max-height: calc(6 * 1.45em); }
+.pr-love .pr-win, .pr-inspire .pr-win { max-height: calc(3 * 1.45em); }
+.pr-cols {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 2rem;
+  min-height: 0;
+}
+.pr-side { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }

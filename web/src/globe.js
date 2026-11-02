@@ -7,6 +7,7 @@ import { feature } from 'topojson-client';
 import world from 'world-atlas/countries-110m.json';
 import { state, ensureMissionEntry } from './state.js';
 import { VIEW, SPEED, VANCOUVER } from './timings.js';
+import { drawStake, fades } from './stake.js';
 
 const land = feature(world, world.objects.countries);
 
@@ -122,15 +123,34 @@ function draw(now) {
 
   const style = renderStyle();
 
-  if (style === 'antique') {
-    drawAntiqueBase(now, cx, cy, r, unit);
-  } else {
-    drawHudBase(now, cx, cy, r, unit);
+  // Past a few × zoom the 110 m world lines are too coarse to look right, so
+  // they fade out (and stop costing anything) as the stake map takes over.
+  const f = fades(g.scale);
+  worldFade = f.world;
+  if (worldFade > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = worldFade;
+    if (style === 'antique') drawAntiqueBase(now, cx, cy, r, unit);
+    else drawHudBase(now, cx, cy, r, unit);
+    ctx.restore();
   }
 
-  drawMissions(now, unit);
-  drawParticles(now, unit);
+  if (f.regional > 0.01) {
+    drawStake(ctx, projection, C, { unit, zoom: g.scale, now, w, h, r, cx, cy });
+  }
+
+  // Mission pins belong to the world view; the stake tour has its own markers.
+  const ov = state.stake.overlay;
+  if (ov < 0.99) {
+    ctx.save();
+    ctx.globalAlpha = 1 - ov;
+    drawMissions(now, unit);
+    ctx.restore();
+  }
+  if (ov < 0.01) drawParticles(now, unit);
 }
+
+let worldFade = 1;
 
 function drawHudBase(now, cx, cy, r, unit) {
   const g = state.globe;
@@ -150,10 +170,10 @@ function drawHudBase(now, cx, cy, r, unit) {
   // Land outlines.
   ctx.strokeStyle = C.ink;
   ctx.lineWidth = 0.9 * unit;
-  ctx.globalAlpha = g.landAlpha;
+  ctx.globalAlpha = g.landAlpha * worldFade;
   beginAndPath(land);
   ctx.stroke();
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = worldFade;
 
   // Sphere outline.
   ctx.strokeStyle = C.ink;
@@ -187,7 +207,7 @@ function drawAntiqueBase(now, cx, cy, r, unit) {
   ctx.restore();
 
   // Countries: stable botanical washes + fine ink outline.
-  ctx.globalAlpha = g.landAlpha;
+  ctx.globalAlpha = g.landAlpha * worldFade;
   for (const f of land.features) {
     ctx.fillStyle = washFor(f);
     beginAndPath(f);
@@ -197,7 +217,7 @@ function drawAntiqueBase(now, cx, cy, r, unit) {
   ctx.lineWidth = 0.7 * unit;
   beginAndPath(land);
   ctx.stroke();
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = worldFade;
 
   // Double-ring sphere border, like an old engraved plate.
   ctx.strokeStyle = C.ink;

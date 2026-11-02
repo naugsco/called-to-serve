@@ -4,6 +4,8 @@ import { state } from './state.js';
 import { mountGlobe, refreshColors } from './globe.js';
 import { mountProfile } from './profile.js';
 import { runLoop, advance } from './loop.js';
+import { loadStake } from './stake.js';
+import { chooseProspects } from './examples.js';
 
 const app = document.getElementById('app');
 
@@ -53,6 +55,26 @@ async function main() {
   if (!res.ok) throw new Error(`Manifest load failed: HTTP ${res.status}`);
   state.data = await res.json();
 
+  // Prospective missionaries + the stake map. Example cards stand in until the
+  // form's first submission (see examples.js); ?sample=1 forces them for review.
+  let prospects = [];
+  try {
+    const readJson = async name => {
+      try {
+        const r = await fetch(`${base}${name}`, { cache: 'no-cache' });
+        return r.ok ? await r.json() : null;
+      } catch { return null; }
+    };
+    const forced = new URLSearchParams(location.search).get('sample') === '1';
+    const real = forced ? { submissions: 0 } : await readJson('prospective.json');
+    const examples = real?.submissions === 0 ? await readJson('prospective.sample.json') : null;
+    prospects = chooseProspects(real, examples);
+    if (prospects.length) await loadStake();
+  } catch (err) {
+    console.warn('stake tour unavailable:', err.message);
+    prospects = [];
+  }
+
   const globeRoot = document.createElement('div');
   globeRoot.id = 'globe-root';
   app.append(globeRoot);
@@ -78,6 +100,8 @@ async function main() {
   runLoop({
     missionaries: state.data.missionaries,
     origin: state.data.origin,
+    prospects,
+    stakeOnly: params.get('act') === 'stake',
     startAt,
     freeze,
   });

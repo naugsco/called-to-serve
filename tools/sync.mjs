@@ -11,7 +11,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { portraitSvg } from './portrait.mjs';
-import { readSubmissions, readRoster } from './sheets.mjs';
+import { readSubmissions, readRoster, readProspective } from './sheets.mjs';
+import { buildProspects } from './prospects.mjs';
 import { downloadPhoto } from './photos.mjs';
 import { rankPhotosByFace } from './face.mjs';
 import { shrinkPhoto } from './resize.mjs';
@@ -237,48 +238,78 @@ await rm(IMAGES_DIR, { recursive: true, force: true });
 await mkdir(IMAGES_DIR, { recursive: true });
 
 // Materialize photos. Sample sources write SVG portraits; Drive sources download.
-for (const m of missionaries) {
-  if (!m._sourcePhotos?.length) continue;
-  const dir = resolve(IMAGES_DIR, m.slug);
-  await mkdir(dir, { recursive: true });
-  const local = [];
-  for (let i = 0; i < m._sourcePhotos.length; i++) {
-    const src = m._sourcePhotos[i];
-    if (src.kind === 'svg') {
-      const dest = resolve(dir, `${i + 1}.svg`);
-      await writeFile(dest, portraitSvg(m.name, src.variant ?? i));
-      local.push(`images/${m.slug}/${i + 1}.svg`);
-    } else if (src.kind === 'drive') {
-      try {
-        const dest = resolve(dir, `${i + 1}.jpg`);
-        await downloadPhoto(src.url, dest);
-        local.push(`images/${m.slug}/${i + 1}.jpg`);
-      } catch (err) {
-        console.warn(`[sync] photo download failed for ${m.name}: ${err.message}`);
+// `group` is a sub-folder under images/ ('' for missionaries, 'prospective' for
+// the youth cards) so the two sets never collide.
+async function materializePhotos(items, group = '') {
+  const rel0 = group ? `images/${group}` : 'images';
+  for (const m of items) {
+    if (!m._sourcePhotos?.length) continue;
+    const dir = resolve(PUBLIC_DIR, rel0, m.slug);
+    await mkdir(dir, { recursive: true });
+    const local = [];
+    for (let i = 0; i < m._sourcePhotos.length; i++) {
+      const src = m._sourcePhotos[i];
+      if (src.kind === 'svg') {
+        const dest = resolve(dir, `${i + 1}.svg`);
+        await writeFile(dest, portraitSvg(m.name, src.variant ?? i));
+        local.push(`${rel0}/${m.slug}/${i + 1}.svg`);
+      } else if (src.kind === 'drive') {
+        try {
+          const dest = resolve(dir, `${i + 1}.jpg`);
+          await downloadPhoto(src.url, dest);
+          local.push(`${rel0}/${m.slug}/${i + 1}.jpg`);
+        } catch (err) {
+          console.warn(`[sync] photo download failed for ${m.name}: ${err.message}`);
+        }
       }
     }
+    // Rank by "best face" so the cleanest solo portrait leads (becomes the main
+    // image); the rest trail it. Only JPEG (Drive) photos are scored; SVG
+    // sample portraits keep their order.
+    const jpgRel = local.filter(p => p.endsWith('.jpg'));
+    if (jpgRel.length > 1) {
+      const absToRel = new Map(jpgRel.map(rel => [resolve(PUBLIC_DIR, rel), rel]));
+      const rankedAbs = await rankPhotosByFace([...absToRel.keys()]);
+      const rankedRel = rankedAbs.map(abs => absToRel.get(abs));
+      const others = local.filter(p => !p.endsWith('.jpg'));
+      m.photos = [...rankedRel, ...others];
+    } else {
+      m.photos = local;
+    }
+    // Shrink AFTER ranking so face scoring still sees the full-resolution
+    // originals. Raw phone photos decode to ~98 MB each and lock up the TV.
+    for (const rel of jpgRel) await shrinkPhoto(resolve(PUBLIC_DIR, rel));
+    m.bestPhoto = m.photos[0] ?? null;
   }
-  // Rank by "best face" so the cleanest solo portrait leads (becomes the main
-  // hex image); the rest trail it and feed the gallery hex. Only JPEG (Drive)
-  // photos are scored; SVG sample portraits keep their order.
-  const jpgRel = local.filter(p => p.endsWith('.jpg'));
-  if (jpgRel.length > 1) {
-    const absToRel = new Map(jpgRel.map(rel => [resolve(PUBLIC_DIR, rel), rel]));
-    const rankedAbs = await rankPhotosByFace([...absToRel.keys()]);
-    const rankedRel = rankedAbs.map(abs => absToRel.get(abs));
-    const others = local.filter(p => !p.endsWith('.jpg'));
-    m.photos = [...rankedRel, ...others];
-  } else {
-    m.photos = local;
-  }
-  // Shrink AFTER ranking so face scoring still sees the full-resolution
-  // originals. Raw phone photos decode to ~98 MB each and lock up the TV.
-  for (const rel of jpgRel) await shrinkPhoto(resolve(PUBLIC_DIR, rel));
-  m.bestPhoto = m.photos[0] ?? null;
-  delete m._sourcePhotos;
+  // Drop the underscored field from every row, with or without photos.
+  for (const m of items) delete m._sourcePhotos;
 }
-// Drop the underscored field from rows that had no photos.
-for (const m of missionaries) delete m._sourcePhotos;
+await materializePhotos(missionaries);
+
+// Prospective missionaries (youth cards for the stake tour). Optional: with no
+// PROSPECTIVE_SHEET_ID / PUBLIC_PROSPECTIVE_CSV_URL this is just an empty list.
+const stakeInfo = JSON.parse(await readFile(resolve(PUBLIC_DIR, 'stake/stake.json'), 'utf8'));
+let prospects = [];
+// How many rows the form has received; null = not configured or unreadable. The
+// kiosk shows its example cards only while this is exactly 0 (web/src/examples.js).
+let prospectiveSubmissions = null;
+if (USE_REAL && (process.env.PROSPECTIVE_SHEET_ID || process.env.PUBLIC_PROSPECTIVE_CSV_URL)) {
+  // A problem with this optional sheet must not stop the missionary data from
+  // publishing, so it warns loudly (GitHub shows ::warning:: on the run) instead.
+  try {
+    const rows = await readProspective();
+    const built = buildProspects(rows, stakeInfo.units);
+    for (const sk of built.skipped) console.warn(`[sync] WARN: prospective "${sk.name}" left out — ${sk.reason}.`);
+    await materializePhotos(built.prospects, 'prospective');
+    prospects = built.prospects;
+    prospectiveSubmissions = rows.length;
+    console.log(`[sync] prospective form: ${rows.length} submission(s), ${prospects.length} shown`);
+  } catch (err) {
+    console.warn(`::warning title=Prospective form::${err.message}`);
+    console.warn(`[sync] WARN: could not read the prospective form, so no prospective cards this run: ${err.message}`);
+  }
+}
+const PROSPECTIVE_JSON = resolve(PUBLIC_DIR, 'prospective.json');
 
 // Country flags: cached per country under web/public/flags/, never wiped.
 // Adds countryCode + flag to each missionary; warns about any country we
@@ -295,3 +326,5 @@ if (failed.length) {
 
 await writeFile(OUT_JSON, JSON.stringify(manifest, null, 2) + '\n');
 console.log(`[sync] wrote ${missionaries.length} missionaries to ${OUT_JSON}`);
+await writeFile(PROSPECTIVE_JSON, JSON.stringify({ generatedAt: manifest.generatedAt, submissions: prospectiveSubmissions, prospects }, null, 2) + '\n');
+console.log(`[sync] wrote ${prospects.length} prospective to ${PROSPECTIVE_JSON}`);
