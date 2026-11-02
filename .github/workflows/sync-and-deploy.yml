@@ -9,7 +9,8 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  # contents: write so the keepalive step below can push its empty commit.
+  contents: write
   pages: write
   id-token: write
 
@@ -26,6 +27,28 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the keepalive push isn't a shallow update.
+          fetch-depth: 0
+
+      # GitHub disables cron workflows after 60 days with no repo activity,
+      # which silently froze the kiosk roster for 10 days in Aug 2026. Push an
+      # empty commit as that window closes to keep the schedule alive. Runs
+      # before the sync so a sync failure can't also cost us the keepalive.
+      # Pushes made with GITHUB_TOKEN don't trigger workflows, so the `push:`
+      # trigger above won't loop.
+      - name: Keepalive
+        if: github.event_name == 'schedule'
+        run: |
+          days=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          echo "Days since last commit: $days"
+          if [ "$days" -ge 50 ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit --allow-empty -m 'chore: keepalive (prevent scheduled workflow auto-disable)'
+            git push
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -41,6 +64,9 @@ jobs:
           GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
           SUBMISSIONS_SHEET_ID: ${{ secrets.SUBMISSIONS_SHEET_ID }}
           ROSTER_SHEET_ID: ${{ secrets.ROSTER_SHEET_ID }}
+          # Optional: responses sheet of the prospective-missionary form.
+          # Unset = no prospective cards and no stake tour.
+          PROSPECTIVE_SHEET_ID: ${{ secrets.PROSPECTIVE_SHEET_ID }}
 
       - name: Build web
         run: npm run build
