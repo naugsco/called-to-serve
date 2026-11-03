@@ -165,8 +165,8 @@ export function showProfile(m, idx, list, origin, holdSec) {
   clearTimeout(bioTimer);
   const photos = m.photos?.length ? m.photos : [];
   const km = distanceKm(origin, { lat: m.missionLat, lng: m.missionLng });
-  const sv = serving(m);
   const category = missionaryCategory(m);
+  const sv = category === 'serving' ? serving(m) : null;
   const group = list.filter(person => missionaryCategory(person) === category);
   const missing = '<div class="v none">Not submitted yet</div>';
   const next = list[(idx + 1) % list.length];
@@ -218,9 +218,9 @@ export function showProfile(m, idx, list, origin, holdSec) {
     </div>
 
     <div class="pf-facts pf-in" style="--i:7">
-      <div><div class="pf-label">SERVING SINCE</div>
+      ${category === 'serving' ? `<div><div class="pf-label">SERVING SINCE</div>
         ${sv ? `<div class="v">${sv.label}</div><div class="s">${sv.sub}</div>
-          <div class="pf-term"><i style="transform:scaleX(${sv.frac.toFixed(3)})"></i></div>` : missing}</div>
+          <div class="pf-term"><i style="transform:scaleX(${sv.frac.toFixed(3)})"></i></div>` : missing}</div>` : ''}
       <div><div class="pf-label">LANGUAGE</div>
         ${m.language ? `<div class="v">${esc(m.language)}</div>` : missing}</div>
       <div><div class="pf-label">HOME WARD</div>
