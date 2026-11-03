@@ -1,0 +1,13 @@
+{
+  "slug": "jordan-sample",
+  "name": "Jordan Sample",
+  "mission": "France Paris Mission",
+  "missionSlug": "france-paris-mission",
+  "missionLat": 48.8566,
+  "missionLng": 2.3522,
+  "missionCountry": "France",
+  "missionCity": "Paris",
+  "flag": "flags/fr.svg",
+  "photos": [],
+  "newlyCalled": true
+}

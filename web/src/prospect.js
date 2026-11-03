@@ -4,7 +4,7 @@
 //
 // loop.js drives it: openProfile() → showProspect(...) per person → leaveProfile().
 
-import { getPanel, decode, esc, url, SILHOUETTE } from './profile.js';
+import { getPanel, setProfileContent, decode, esc, url, SILHOUETTE } from './profile.js';
 import { T } from './timings.js';
 
 let scrollTimers = [];
@@ -54,7 +54,7 @@ export function showProspect(p, idx, list, building, holdSec) {
   const next = list[(idx + 1) % list.length];
   const missing = '';
 
-  panel.innerHTML = `
+  setProfileContent('prospective', `
     <div class="pf-head">
       <div class="pf-photo pf-in" style="--i:0">
         ${photos.length
@@ -64,7 +64,6 @@ export function showProspect(p, idx, list, building, holdSec) {
           <span class="pf-dots">${photos.map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('')}</span></div>` : ''}
       </div>
       <div class="pf-id">
-        <div class="pf-kicker pf-in" style="--i:1">PREPARING TO SERVE</div>
         <h1 class="pf-name"></h1>
         <div class="pf-rule"></div>
         <div class="pf-flagrow pf-in" style="--i:2"><span>${esc(GROUP_LABEL[p.group] || 'YOUTH')}</span></div>
@@ -92,10 +91,10 @@ export function showProspect(p, idx, list, building, holdSec) {
         ${list.map((_, i) => `<i class="${i < idx ? 'done' : i === idx ? 'cur' : ''}">${i === idx ? '<b></b>' : ''}</i>`).join('')}
       </div>
     </div>
-  `;
+  `);
 
   panel.classList.add('pr');
-  panel.classList.remove('leaving', 'shown');
+  panel.classList.remove('serving', 'returned', 'called', 'leaving', 'shown');
   void panel.offsetWidth;                       // restart the entrance transitions
   panel.classList.add('shown');
   decode(panel.querySelector('.pf-name'), p.name.replace(/-/g, '‑'), 650, 120);

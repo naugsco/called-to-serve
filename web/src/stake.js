@@ -145,7 +145,7 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
 
   // --- ward territories ---
   for (const [id, ring] of Object.entries(s.data.territories)) {
-    const lit = activeUnits.has(id);
+    const lit = s.activeUnit ? s.activeUnit === id : !s.leaderView && activeUnits.has(id);
     ctx.beginPath();
     ringPath(ctx, projection, ring);
     ctx.fillStyle = lit ? `rgba(${C.goldRgb}, ${0.16 * A})` : `rgba(${C.accentRgb}, ${0.05 * A})`;
@@ -213,6 +213,7 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
 
     // Label: name (and address when featured), in its own corner with a leader
     // line when it sits off to the side.
+    if (isActive && s.leaderView) continue; // The unit details already label the active pin.
     const [dx, dy, side] = isActive ? [side0(b), 0, side0(b) > 0 ? 'e' : 'w'] : LABEL[b.id] || [16, 0, 'e'];
     const east = side === 'e';
     const gap = isActive ? 22 + 8 * f.local : 0;

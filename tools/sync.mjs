@@ -11,12 +11,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { portraitSvg } from './portrait.mjs';
-import { readSubmissions, readRoster, readProspective } from './sheets.mjs';
+import { readSubmissions, readRoster, readProspective, readRosterUpdates, readLeaderSources } from './sheets.mjs';
+import { buildLeaders } from './leaders.mjs';
 import { buildProspects } from './prospects.mjs';
 import { downloadPhoto } from './photos.mjs';
 import { rankPhotosByFace } from './face.mjs';
 import { shrinkPhoto } from './resize.mjs';
-import { parseStartDate } from './dates.mjs';
+import { parseStartDate, recentReturn } from './dates.mjs';
 import { decorateWithFlags } from './flags.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -87,9 +88,10 @@ async function loadReal() {
   }
   console.log(`[sync] using live data (${label})`);
   const knownMissions = Array.from(missionByName.keys());
-  const [roster, submissions] = await Promise.all([
+  const [serving, submissions, { returned, called }] = await Promise.all([
     readRoster(knownMissions),
     readSubmissions(),
+    readRosterUpdates(knownMissions),
   ]);
   // Group submissions by normalized missionary name — parents may submit
   // multiple times, and each row may carry multiple Drive URLs.
@@ -110,6 +112,23 @@ async function loadReal() {
     push(subsByName, key, s);
     push(subsByTight, tighten(key), s);
   }
+  const activeNames = new Set(serving.map(r => normalizeName(r.name)));
+  const recent = new Map();
+  for (const row of returned) {
+    const returnDate = parseStartDate(row.returnDateRaw)?.iso;
+    if (!returnDate) throw new Error(`Invalid return date for ${row.name}`);
+    const key = normalizeName(row.name);
+    if (!activeNames.has(key) && recentReturn(returnDate) &&
+        returnDate > (recent.get(key)?.returnDate ?? '')) {
+      recent.set(key, { ...row, returnDate });
+    }
+  }
+  const newCalls = new Map();
+  for (const row of called) {
+    const key = normalizeName(row.name);
+    if (!activeNames.has(key)) newCalls.set(key, row);
+  }
+  const roster = [...newCalls.values(), ...serving, ...[...recent].filter(([key]) => !newCalls.has(key)).map(([, row]) => row)];
   const rosterExactKeys = new Set(roster.map(r => normalizeName(r.name)));
   return roster.map(r => {
     const key = normalizeName(r.name);
@@ -132,6 +151,8 @@ async function loadReal() {
       name: r.name,
       mission: r.mission,
       raw: r.raw,
+      returnDate: r.returnDate,
+      newlyCalled: r.newlyCalled,
       permission: allowed.length > 0,
       bio,
       startDate: resolveStartDate(r.name, subs),
@@ -173,7 +194,7 @@ const unmatched = [];
 const missionaries = [];
 for (const row of sourceRows) {
   if (!row.mission) {
-    if (!/^(elder|sister)\b/i.test(row.name || '')) {
+    if (!row.newlyCalled && !/^(elder|sister)\b/i.test(row.name || '')) {
       console.warn(`[sync] WARN: skipping roster row that isn't a missionary: "${row.raw || row.name}"`);
       continue;
     }
@@ -199,6 +220,8 @@ for (const row of sourceRows) {
     startDate: row.startDate ?? null,   // YYYY-MM-DD from the form
     language: row.language ?? null,
     homeWard: row.homeWard ?? null,
+    ...(row.newlyCalled ? { newlyCalled: true } : {}),
+    ...(row.returnDate ? { returnDate: row.returnDate } : {}),
     fact: factsRaw.facts?.[mission.slug] ?? null,
     _sourcePhotos: row.sourcePhotos,
     photos: [],
@@ -226,6 +249,14 @@ const manifest = {
   origin: { lat: 49.2827, lng: -123.1207, label: 'Vancouver, BC' },
   missionaries,
 };
+
+const stakeInfo = JSON.parse(await readFile(resolve(PUBLIC_DIR, 'stake/stake.json'), 'utf8'));
+let leaders = [];
+if (process.env.LEADER_PROFILES_SHEET_ID || process.env.LEADER_ORG_CHART_ID) {
+  const { stakeRows, unitRows, submissions } = await readLeaderSources();
+  leaders = buildLeaders(stakeRows, unitRows, submissions, stakeInfo.units, allMissions);
+  console.log(`[sync] ${leaders.length} current leaders with consented profiles`);
+}
 
 if (dryRun) {
   console.log('[sync] dry-run.');
@@ -288,7 +319,6 @@ await materializePhotos(missionaries);
 
 // Prospective missionaries (youth cards for the stake tour). Optional: with no
 // PROSPECTIVE_SHEET_ID / PUBLIC_PROSPECTIVE_CSV_URL this is just an empty list.
-const stakeInfo = JSON.parse(await readFile(resolve(PUBLIC_DIR, 'stake/stake.json'), 'utf8'));
 let prospects = [];
 // How many rows the form has received; null = not configured or unreadable. The
 // kiosk shows its example cards only while this is exactly 0 (web/src/examples.js).
@@ -314,7 +344,9 @@ const PROSPECTIVE_JSON = resolve(PUBLIC_DIR, 'prospective.json');
 // Country flags: cached per country under web/public/flags/, never wiped.
 // Adds countryCode + flag to each missionary; warns about any country we
 // don't have an ISO code for yet.
-const { missing, failed } = await decorateWithFlags(missionaries, PUBLIC_DIR);
+await materializePhotos(leaders, 'leaders');
+const { missing, failed } = await decorateWithFlags([...missionaries, ...leaders], PUBLIC_DIR);
+await writeFile(resolve(PUBLIC_DIR, 'leaders.json'), JSON.stringify({ leaders }, null, 2) + '\n');
 if (missing.length) {
   console.warn(`\n[sync] WARN: no flag for ${missing.length} country/countries — add to tools/country-codes.json:`);
   for (const c of missing) console.warn(`  • "${c}": "xx"   (ISO 3166-1 alpha-2, lowercase)`);

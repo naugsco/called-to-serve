@@ -4,6 +4,10 @@
     "schema": "Same as missions-seed.json mission entries: { name, slug, hq, country, lat, lng }"
   },
   "missions": [
+    { "name": "Guatemala Cobán/Belize Mission", "hq": "Cobán", "country": "Guatemala", "lat": 15.4708, "lng": -90.3700 },
+    { "name": "Hawaii Laie Mission", "hq": "Laie, HI", "country": "United States", "lat": 21.6477, "lng": -157.9253 },
+    { "name": "France Paris North Mission", "hq": "Paris", "country": "France", "lat": 48.8566, "lng": 2.3522 },
+    { "name": "Arizona Phoenix West Mission", "hq": "Phoenix, AZ", "country": "United States", "lat": 33.4484, "lng": -112.0740 },
     { "name": "Canada Vancouver Mission",        "hq": "Vancouver, BC",    "country": "Canada",        "lat": 49.2827, "lng": -123.1207 },
     { "name": "Canada Calgary Mission",          "hq": "Calgary, AB",      "country": "Canada",        "lat": 51.0447, "lng": -114.0719 },
     { "name": "Canada Edmonton Mission",         "hq": "Edmonton, AB",     "country": "Canada",        "lat": 53.5461, "lng": -113.4938 },

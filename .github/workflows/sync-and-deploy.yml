@@ -67,6 +67,8 @@ jobs:
           # Optional: responses sheet of the prospective-missionary form.
           # Unset = no prospective cards and no stake tour.
           PROSPECTIVE_SHEET_ID: ${{ secrets.PROSPECTIVE_SHEET_ID }}
+          LEADER_ORG_CHART_ID: ${{ secrets.LEADER_ORG_CHART_ID }}
+          LEADER_PROFILES_SHEET_ID: ${{ secrets.LEADER_PROFILES_SHEET_ID }}
 
       - name: Build web
         run: npm run build

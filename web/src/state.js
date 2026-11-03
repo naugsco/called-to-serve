@@ -32,6 +32,8 @@ export const state = {
     land: null,            // regional coastline lines
     local: new Map(),      // buildingId → { roads, coast, rivers } once loaded
     overlay: 0,            // 0..1 fade of boundary / wards / building pins
+    leaderView: false,
+    activeUnit: null,
     activeBuilding: null,  // buildingId currently featured
   },
 

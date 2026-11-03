@@ -10,3 +10,4 @@ tools/.secrets/
 
 # Generated from the prospective form (teens' answers) - never commit
 web/public/prospective.json
+web/public/leaders.json

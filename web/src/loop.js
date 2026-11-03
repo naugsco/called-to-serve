@@ -13,10 +13,12 @@
 //     so the loop seam is invisible.
 
 import gsap from 'gsap';
+import { geoArea } from 'd3-geo';
+import { hideUnitDetails, showLeader } from './leader.js';
 import { state, ensureMissionEntry } from './state.js';
 import { T, SPEED, VIEW, VANCOUVER, STAKE_VIEW } from './timings.js';
 import { spawnParticleToMission } from './globe.js';
-import { openProfile, closeProfile, leaveProfile, showProfile } from './profile.js';
+import { openProfile, closeProfile, leaveProfile, showProfile, missionaryCategory } from './profile.js';
 import { showProspect, stopProspect } from './prospect.js';
 import { ensureLocal } from './stake.js';
 
@@ -25,15 +27,27 @@ const wait = (s) => new Promise(r => setTimeout(r, s * 1000));
 // Skippable hold — like wait(), but advance() resolves it early so a click on
 // FEED jumps straight to the next missionary. Only one hold is ever pending.
 let skipHold = null;
-function hold(s) {
+let skippingGroup = null;
+
+function skipGroup(category) {
+  if (skippingGroup === category) return true;
+  skippingGroup = null;
+  return false;
+}
+
+function hold(s, category, freeze) {
   return new Promise(resolve => {
     const done = () => { clearTimeout(timer); skipHold = null; resolve(); };
-    const timer = setTimeout(done, s * 1000);
-    skipHold = done;
+    const timer = freeze ? null : setTimeout(done, s * 1000);
+    skipHold = (group) => {
+      if (group) skippingGroup = category;
+      done();
+    };
   });
 }
 // Wired to the FEED control in the bottom bar (see main.js).
 export function advance() { skipHold?.(); }
+export function advanceGroup() { skipHold?.(true); }
 
 function tweenTo(target, vars) {
   return new Promise(resolve => {
@@ -60,18 +74,24 @@ async function centerOn(lng, lat, dur, ease = 'power2.inOut') {
 
 // opts.startAt: jump straight to that missionary (skips intro/launch).
 // opts.freeze:  stop on the first missionary shown (review/debug).
-export async function runLoop({ missionaries, origin, prospects = [], startAt = null, freeze = false, stakeOnly = false }) {
-  const list = missionaries.filter(m => m.missionLat != null);
-  if (!list.length) throw new Error('No missionaries with mission coordinates to show');
-  let first = startAt == null ? null : Math.max(0, Math.min(startAt, list.length - 1));
-  const tour = prospects.length > 0 && !!state.stake.data;
+export async function runLoop({ missionaries, origin, prospects = [], leaders = [], startAt = null, freeze = false, stakeOnly = false, leaderOnly = false }) {
+  const available = missionaries.filter(m => m.missionLat != null);
+  if (!available.length) throw new Error('No missionaries with mission coordinates to show');
+  const list = ['called', 'serving', 'returned'].flatMap(category =>
+    available.filter(m => missionaryCategory(m) === category));
+  const leaderOrder = ['unit', 'auxiliary', 'presidency'];
+  const orderedLeaders = leaderOrder.flatMap(group => leaders.filter(leader => leader.group === group));
+  let first = startAt == null ? null : list.indexOf(available[Math.max(0, Math.min(startAt, available.length - 1))]);
+  const tour = (prospects.length || leaders.length) && !!state.stake.data;
 
   // ?act=stake — jump straight to the stake tour (review/debug).
-  if (stakeOnly && tour) {
+  if ((stakeOnly || leaderOnly) && tour) {
     for (const m of list) ensureMissionEntry(m.missionSlug).highlighted = true;
     state.phase = 'open';
     await open();
-    await stakeTour(prospects);
+    const selected = leaders[Math.max(0, startAt ?? 0)];
+    const tourLeaders = leaderOnly && selected ? orderedLeaders.slice(orderedLeaders.indexOf(selected)) : orderedLeaders;
+    await stakeTour(leaderOnly ? [] : prospects, tourLeaders, freeze);
     first = null;
   }
 
@@ -89,18 +109,20 @@ export async function runLoop({ missionaries, origin, prospects = [], startAt = 
     await open();
     state.phase = 'profile';
     for (let i = first ?? 0; i < list.length; i++) {
+      const category = missionaryCategory(list[i]);
+      if (skipGroup(category)) continue;
       await profile(list, i, origin);
-      if (freeze) return;
-      await hold(T.profileHold);   // FEED skips to the next missionary
+      await hold(T.profileHold, category, freeze);
     }
     first = null;
     if (tour) {
       // The tour ends back at the world view, so it replaces close().
-      await stakeTour(prospects);
+      await stakeTour(prospects, orderedLeaders, freeze);
     } else {
       state.phase = 'close';
       await close();
     }
+    skippingGroup = null;
   }
 }
 
@@ -173,7 +195,7 @@ const kmBetween = (a, b) => {
 };
 
 // World view → whole stake → each prospective missionary's meetinghouse → back out.
-async function stakeTour(prospects) {
+async function stakeTour(prospects, leaders, freeze = false) {
   const S = state.stake, g = state.globe;
   state.phase = 'stake';
   closeProfile();
@@ -190,6 +212,7 @@ async function stakeTour(prospects) {
   // 2. One card per person, flying to the building where their ward meets.
   let here = STAKE_VIEW.center, atOverview = true;
   for (let i = 0; i < prospects.length; i++) {
+    if (skipGroup('prospective')) break;
     const p = prospects[i];
     const b = S.data.buildings.find(x => x.id === p.buildingId);
     if (!b) continue;
@@ -213,8 +236,29 @@ async function stakeTour(prospects) {
     }
     openProfile();
     showProspect(p, i, prospects, b, T.stakeHold);
-    await hold(T.stakeHold);           // FEED skips ahead
+    await hold(T.stakeHold, 'prospective', freeze);
   }
+
+  S.leaderView = true;
+  for (const leader of leaders) {
+    if (skipGroup(leader.group)) continue;
+    leaveProfile(); stopProspect(); hideUnitDetails();
+    const building = S.data.buildings.find(b => b.id === leader.buildingId);
+    const ring = S.data.territories[leader.unitId];
+    const view = ring ? wardView(ring) : STAKE_VIEW;
+    S.activeBuilding = building?.id ?? null;
+    S.activeUnit = leader.unitId ?? null;
+    state.phase = 'stake-card';
+    await flyTo({ ...view.center, scale: view.scale, centerX: VIEW.profileCenterX, dur: T.stakeFly });
+    openProfile();
+    const sphere = ring ? geoArea({ type: 'Polygon', coordinates: [ring] }) : 0;
+    const area = Math.min(sphere, 4 * Math.PI - sphere) * 6371 ** 2;
+    showLeader(leader, building, area, T.stakeHold);
+    await hold(T.stakeHold, leader.group, freeze);
+  }
+  hideUnitDetails();
+  S.activeUnit = null;
+  S.leaderView = false;
 
   // 3. Back out to the globe, ready for the intro spin.
   state.phase = 'stake-out';
@@ -226,6 +270,16 @@ async function stakeTour(prospects) {
   ]);
   S.activeBuilding = null;
   await tweenTo(g, { omega: SPEED.baseOmega, duration: 1.2, ease: 'power2.inOut' });
+}
+
+function wardView(ring) {
+  const lngs = ring.map(([lng]) => lng);
+  const lats = ring.map(([, lat]) => lat);
+  const lng = (Math.max(...lngs) + Math.min(...lngs)) / 2;
+  const lat = (Math.max(...lats) + Math.min(...lats)) / 2;
+  const width = (Math.max(...lngs) - Math.min(...lngs)) * Math.cos(lat * Math.PI / 180);
+  const height = Math.max(...lats) - Math.min(...lats);
+  return { center: { lng, lat }, scale: Math.min(450, 74 / Math.max(width, height)) };
 }
 
 async function close() {

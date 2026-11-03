@@ -1,0 +1,43 @@
+{
+  "leaders": [
+    {
+      "name": "Jordan Avery",
+      "role": "Bishop",
+      "group": "unit",
+      "unitId": "burnaby",
+      "buildingId": "burnaby",
+      "ward": "Burnaby Ward",
+      "mission": "France Paris Mission",
+      "missionCountry": "France",
+      "flag": "flags/fr.svg",
+      "birthplace": "Victoria, BC",
+      "scripture": "Mosiah 2:17",
+      "hobbies": "Kayaking and baking sourdough.",
+      "family": "We love exploring the trails around the Lower Mainland.",
+      "hymn": "Come, Thou Fount of Every Blessing",
+      "bestPhoto": "leader.sample.svg"
+    },
+    {
+      "name": "Morgan Ellis",
+      "role": "Stake President",
+      "group": "presidency",
+      "birthplace": "Kelowna, BC",
+      "scripture": "Doctrine and Covenants 121:41–42",
+      "hobbies": "Gardening and playing the piano.",
+      "family": "Sunday dinner is our favourite tradition.",
+      "hymn": "I Know That My Redeemer Lives"
+    },
+    {
+      "name": "Robin Bennett",
+      "role": "Stake Relief Society President",
+      "group": "auxiliary",
+      "mission": "Canada Toronto Mission",
+      "missionCountry": "Canada",
+      "flag": "flags/ca.svg",
+      "birthplace": "Surrey, BC",
+      "scripture": "Moroni 7:47",
+      "hobbies": "Photography and trail walking.",
+      "hymn": "As Sisters in Zion"
+    }
+  ]
+}

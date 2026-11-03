@@ -3,7 +3,7 @@
 import { state } from './state.js';
 import { mountGlobe, refreshColors } from './globe.js';
 import { mountProfile } from './profile.js';
-import { runLoop, advance } from './loop.js';
+import { runLoop, advance, advanceGroup } from './loop.js';
 import { loadStake } from './stake.js';
 import { chooseProspects } from './examples.js';
 
@@ -46,7 +46,8 @@ function initTheme() {
   // FEED acts as a manual advance — skip the current hold and jump to the next
   // missionary. Handy for testing and for stepping through on demand.
   const feed = document.getElementById('feed-advance');
-  if (feed) feed.addEventListener('click', () => advance());
+  if (feed) feed.addEventListener('click', advance);
+  document.getElementById('group-advance')?.addEventListener('click', advanceGroup);
 }
 
 async function main() {
@@ -54,10 +55,17 @@ async function main() {
   const res = await fetch(`${base}missionaries.json`, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`Manifest load failed: HTTP ${res.status}`);
   state.data = await res.json();
+  if (new URLSearchParams(location.search).get('sample') === '1') {
+    const sample = await fetch(`${base}returned.sample.json`);
+    if (sample.ok) state.data.missionaries.push(await sample.json());
+    const called = await fetch(`${base}called.sample.json`);
+    if (called.ok) state.data.missionaries.push(await called.json());
+  }
 
   // Prospective missionaries + the stake map. Example cards stand in until the
   // form's first submission (see examples.js); ?sample=1 forces them for review.
   let prospects = [];
+  let leaders = [];
   try {
     const readJson = async name => {
       try {
@@ -69,7 +77,9 @@ async function main() {
     const real = forced ? { submissions: 0 } : await readJson('prospective.json');
     const examples = real?.submissions === 0 ? await readJson('prospective.sample.json') : null;
     prospects = chooseProspects(real, examples);
-    if (prospects.length) await loadStake();
+    const leadership = await readJson(forced ? 'leaders.sample.json' : 'leaders.json');
+    leaders = leadership?.leaders ?? [];
+    if (prospects.length || leaders.length) await loadStake();
   } catch (err) {
     console.warn('stake tour unavailable:', err.message);
     prospects = [];
@@ -96,11 +106,18 @@ async function main() {
   // launch); ?freeze=1 stops on it. ?freeze=1 alone freezes on the first.
   const params = new URLSearchParams(location.search);
   const freeze = params.get('freeze') === '1';
-  const startAt = params.has('i') ? Number(params.get('i')) || 0 : (freeze ? 0 : null);
-  runLoop({
+  const sampleStatus = params.get('sample') === '1' ? params.get('status') : null;
+  const sampleIndex = state.data.missionaries.findIndex(m =>
+    (sampleStatus === 'called' && m.newlyCalled) ||
+    (sampleStatus === 'returned' && m.returnDate) ||
+    (sampleStatus === 'serving' && !m.newlyCalled && !m.returnDate));
+  const startAt = sampleIndex >= 0 ? sampleIndex : params.has('i') ? Number(params.get('i')) || 0 : (freeze ? 0 : null);
+  await runLoop({
     missionaries: state.data.missionaries,
     origin: state.data.origin,
     prospects,
+    leaders,
+    leaderOnly: params.get('act') === 'leaders',
     stakeOnly: params.get('act') === 'stake',
     startAt,
     freeze,

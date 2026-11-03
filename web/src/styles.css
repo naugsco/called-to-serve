@@ -136,6 +136,8 @@ body { font-family: var(--font-sans); }
    transform transitions only — no SVG filters, blur or mask-image, so it stays
    smooth on TV GPUs. Only the globe canvas redraws every frame. */
 #profile {
+  --profile-padding-x: 2rem;
+  --profile-photo-width: 15rem;
   position: fixed;
   z-index: 3;
   /* Sized to its content and vertically centred between the HUD bars. */
@@ -148,7 +150,7 @@ body { font-family: var(--font-sans); }
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1.5rem 2rem;
+  padding: 1.5rem var(--profile-padding-x);
   font-family: var(--font-sans);
   color: var(--ink);
   background: rgba(var(--bg-rgb), 0.86);
@@ -191,7 +193,7 @@ body { font-family: var(--font-sans); }
 /* ---------- Header: photo | identity ---------- */
 .pf-head {
   display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr);
+  grid-template-columns: var(--profile-photo-width) minmax(0, 1fr);
   gap: 1.75rem;
   align-items: stretch;
 }
@@ -472,3 +474,116 @@ body { font-family: var(--font-sans); }
   min-height: 0;
 }
 .pr-side { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+
+#profile.called { --status-color: #62a783; }
+#profile.serving { --status-color: #82bfe8; }
+#profile.returned { --status-color: #dc9250; }
+#profile:is(.called, .serving, .returned) {
+  box-shadow: inset 0 0 0 2px var(--status-color);
+  background: color-mix(in srgb, var(--bg) 87%, var(--status-color));
+}
+.pf-congratulations {
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  left: calc(var(--profile-padding-x) + var(--profile-photo-width) / 2);
+  translate: -50% 0;
+  width: max-content;
+  padding: 0.45rem 0.85rem;
+  color: var(--ink);
+  border-left: 3px solid var(--status-color);
+  background: color-mix(in srgb, var(--bg) 87%, var(--status-color));
+  font: 600 1rem var(--font-mono);
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+}
+.leader-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.5rem;
+  overflow-wrap: anywhere;
+}
+.leader-grid p { margin: 0.35rem 0 0; font-size: 1.35rem; }
+.unit-details {
+  position: absolute;
+  bottom: 5rem;
+  left: 3%;
+  z-index: 2;
+  max-width: 43%;
+  padding: 0.75rem 1.15rem;
+  background: rgba(var(--bg-rgb), 0.92);
+  border: 1px solid var(--ink-ghost);
+  color: var(--ink);
+  font: 1.15rem/1.45 var(--font-sans);
+}
+.unit-details strong { font-size: 1.45rem; }
+#profile > .leader-fields { display: block; }
+
+.pf-tabs {
+  position: absolute;
+  right: -1px;
+  bottom: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: end;
+  max-width: 100%;
+}
+#profile.called .pf-tabs { max-width: calc(100% - 12rem); }
+@property --tab-height {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.pf-tab {
+  --tab-height: 0.45rem;
+  --tab-slope: calc(var(--tab-height) * 1.191754);
+  flex: 0 0 1.9rem;
+  height: var(--tab-height);
+  overflow: hidden;
+  border: 1px solid var(--ink-faint);
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--bg) 85%, var(--ink));
+  clip-path: polygon(var(--tab-slope) 0, calc(100% - var(--tab-slope)) 0, 100% 100%, 0 100%);
+  transition: flex-basis 420ms cubic-bezier(.2,.75,.25,1), --tab-height 420ms cubic-bezier(.2,.75,.25,1), background 250ms ease;
+}
+.pf-tab + .pf-tab { margin-left: -0.8rem; }
+.pf-tab span {
+  display: block;
+  text-align: center;
+  opacity: 0;
+  white-space: nowrap;
+  text-transform: uppercase;
+  font: 600 0.95rem/2.25rem var(--font-mono);
+  letter-spacing: 0.06em;
+  transition: opacity 150ms ease;
+}
+.pf-tab[aria-current] {
+  z-index: 1;
+  --tab-height: 2.25rem;
+  flex-basis: 19rem;
+  border-color: var(--status-color, var(--ink-faint));
+  background: var(--status-color, var(--ink-faint));
+  color: var(--bg);
+}
+.pf-tab[aria-current] span { opacity: 1; transition-delay: 210ms; }
+#profile:is(.called, .serving, .returned) .pf-tab[aria-current] { color: #101820; }
+#group-advance {
+  background: transparent;
+  border: 0;
+  padding: 0.25em 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+#group-advance:is(:hover, :focus-visible) { color: var(--ink); text-decoration: underline; }
+
+#profile .pf-congratulations {
+  bottom: calc(100% + 0.25rem);
+  font-size: 1.25rem;
+  letter-spacing: 0.13em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-tab, .pf-tab span { transition: none; }
+}

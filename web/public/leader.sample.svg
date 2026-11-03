@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="g444688139" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6a4c93"/>
+      <stop offset="100%" stop-color="#371960"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#g444688139)"/>
+  <g transform="rotate(-5 200 200)">
+    <circle cx="200" cy="160" r="70" fill="#f7b801" opacity="0.92"/>
+    <path d="M80 380 C80 280, 320 280, 320 380 Z" fill="#f7b801" opacity="0.92"/>
+  </g>
+  <text x="200" y="225" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-weight="700"
+        font-size="84" fill="#6a4c93" opacity="0.85" letter-spacing="6">JA</text>
+</svg>

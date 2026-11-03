@@ -273,3 +273,91 @@ function unfoldIndex(rawStr, foldedIdx) {
   }
   return i;
 }
+
+export async function readRosterUpdates(knownMissionNames) {
+  const id = process.env.ROSTER_SHEET_ID;
+  if (!id || process.env.PUBLIC_ROSTER_CSV_URL) return { returned: [], called: [] };
+  const s = await client();
+  const r = await s.spreadsheets.values.get({
+    spreadsheetId: id, range: 'Missionaries!D:H',
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+  const [header, ...rows] = r.data.values ?? [];
+  const hasReturned = header?.[0]?.trim() === 'Missionaries Recently Returned';
+  const hasCalled = header?.[4]?.trim() === 'Missionaries Newly Called';
+  if (!hasReturned) console.warn('[sync] WARN: no recently returned section at Missionaries!D1');
+  if (!hasCalled) console.warn('[sync] WARN: no newly called section at Missionaries!H1');
+
+  const returned = [];
+  const called = [];
+  for (const [i, [returnCell, returnDateRaw, , , callCell]] of rows.entries()) {
+    if (hasReturned && returnCell) {
+      if (returnDateRaw == null || returnDateRaw === '') {
+        console.warn(`[sync] WARN: missing return date in Missionaries!E${i + 2}; skipping this card`);
+      } else {
+        // A returned missionary can list multiple missions on separate lines.
+        // Use the last listed mission for the card and map.
+        const lines = returnCell.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        const last = lines.at(-1);
+        const cell = lines.length > 1 && lines.slice(0, -1).some(line => /mission$/i.test(line))
+          ? `${lines[0].split(/,|\s+[–—-]\s+/)[0]} - ${last}`
+          : returnCell.replace(/\s+/g, ' ');
+        returned.push({ ...parseRosterCell(cell, knownMissionNames), returnDateRaw });
+      }
+    }
+    if (hasCalled && callCell) {
+      called.push({ ...parseRosterCell(callCell.replace(/\s+/g, ' '), knownMissionNames), newlyCalled: true });
+    }
+  }
+  return { returned, called };
+}
+
+const PROFILE_HEADERS = {
+  email: /^email address$/i,
+  permission: /^permission to display$/i,
+  photo: /^photo$/i,
+  served: /^did you serve a mission\?$/i,
+  mission: /^where did you serve\?$/i,
+  missionCountry: /^mission country$/i,
+  birthplace: /^birthplace$/i,
+  scripture: /^favorite scripture$/i,
+  hobbies: /^hobbies$/i,
+  family: /^family$/i,
+  hymn: /^favorite hymn$/i,
+};
+
+export async function readLeaderSources() {
+  const responsesId = process.env.LEADER_PROFILES_SHEET_ID;
+  const orgId = process.env.LEADER_ORG_CHART_ID;
+  if (!responsesId || !orgId) throw new Error('Leader sync requires both leader spreadsheet IDs');
+  const s = await client();
+  const read = async (spreadsheetId, range) => {
+    const r = await s.spreadsheets.values.get({ spreadsheetId, range });
+    return r.data.values ?? [];
+  };
+  const [stakeRows, unitRows, rows] = await Promise.all([
+    read(orgId, "'ALL'!A:H"),
+    read(orgId, "'Unit Leadership'!A:D"),
+    read(responsesId, "'Form Responses 1'!A:Z"),
+  ]);
+  return { stakeRows, unitRows, submissions: parseLeaderProfiles(rows) };
+}
+
+export function parseLeaderProfiles(rows) {
+  if (!rows.length) return [];
+  const spec = Object.fromEntries(Object.entries(PROFILE_HEADERS).map(([key, re]) =>
+    [key, { re, required: true }]));
+  const cols = locateColumns(rows[0], spec, 'Leader profiles');
+  return rows.slice(1).map(row => {
+    const value = key => String(row[cols[key]] ?? '').trim() || null;
+    const served = value('served') === 'Yes';
+    return {
+      email: value('email'), permission: value('permission') === 'Yes',
+      photoUrls: splitPhotoUrls(value('photo')),
+      mission: served ? value('mission') : null,
+      missionCountry: served ? value('missionCountry') : null,
+      birthplace: value('birthplace'), scripture: value('scripture'),
+      hobbies: value('hobbies'), family: value('family'), hymn: value('hymn'),
+    };
+  }).filter(row => row.email);
+}

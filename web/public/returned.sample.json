@@ -1,0 +1,13 @@
+{
+  "slug": "sister-taylor-sample",
+  "name": "Sister Taylor Sample",
+  "mission": "France Paris Mission",
+  "missionSlug": "france-paris-mission",
+  "missionLat": 48.8566,
+  "missionLng": 2.3522,
+  "missionCountry": "France",
+  "missionCity": "Paris",
+  "returnDate": "2026-10-01",
+  "flag": "flags/fr.svg",
+  "photos": []
+}

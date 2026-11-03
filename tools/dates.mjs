@@ -45,3 +45,13 @@ export function parseStartDate(value) {
 }
 
 const wrap = v => (v ? { iso: v } : { invalid: true });
+
+// Compare calendar dates in Vancouver. Clamp Feb 29 to Feb 28 in a non-leap year.
+export function recentReturn(date, now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const { year, month, day } = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  const cutoff = iso(+year - 1, +month, +day) || iso(+year - 1, 2, 28);
+  return Boolean(date && date <= `${year}-${month}-${day}` && date > cutoff);
+}

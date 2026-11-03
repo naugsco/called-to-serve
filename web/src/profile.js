@@ -11,17 +11,48 @@ import { T } from './timings.js';
 const base = import.meta.env.BASE_URL || '/';
 export const url = p => base + String(p).replace(/^\//, '');
 
+const categories = [
+  ['called', 'Newly Called'],
+  ['serving', 'Currently Serving'],
+  ['returned', 'Recently Returned'],
+  ['prospective', 'Preparing to Serve'],
+  ['unit', 'Bishop/Branch Pres'],
+  ['auxiliary', 'Stake Auxiliary'],
+  ['presidency', 'Stake Presidency'],
+];
+
+export const missionaryCategory = m => m.newlyCalled ? 'called' : m.returnDate ? 'returned' : 'serving';
+
 let panel = null;
+let tabs = null;
 let photoTimer = null;
 let bioTimer = null;
 
 export function mountProfile() {
   panel = document.createElement('section');
   panel.id = 'profile';
+  tabs = document.createElement('div');
+  tabs.className = 'pf-tabs';
+  tabs.setAttribute('role', 'list');
+  tabs.setAttribute('aria-label', 'Profile categories');
+  tabs.innerHTML = categories.map(([id, label]) =>
+    `<div class="pf-tab" role="listitem" data-category="${id}" aria-label="${label}"><span aria-hidden="true">${label}</span></div>`
+  ).join('');
+  panel.append(tabs);
   document.body.append(panel);
 }
 
 export const getPanel = () => panel;
+
+export function setProfileContent(category, html) {
+  // Keep the tabs mounted so their width can transition across card changes.
+  while (tabs.nextElementSibling) tabs.nextElementSibling.remove();
+  panel.insertAdjacentHTML('beforeend', html);
+  if (panel.dataset.category === category) return;
+  panel.dataset.category = category;
+  tabs.querySelector('[aria-current]')?.removeAttribute('aria-current');
+  tabs.querySelector(`[data-category="${category}"]`).setAttribute('aria-current', 'true');
+}
 
 export function openProfile()  { panel.classList.add('open'); }
 export function closeProfile() {
@@ -115,10 +146,12 @@ export function showProfile(m, idx, list, origin, holdSec) {
   const photos = m.photos?.length ? m.photos : [];
   const km = distanceKm(origin, { lat: m.missionLat, lng: m.missionLng });
   const sv = serving(m);
+  const category = missionaryCategory(m);
   const missing = '<div class="v none">Not submitted yet</div>';
   const next = list[(idx + 1) % list.length];
 
-  panel.innerHTML = `
+  setProfileContent(category, `
+    ${m.newlyCalled ? '<div class="pf-congratulations pf-in">Congratulations!</div>' : ''}
     <div class="pf-head">
       <div class="pf-photo pf-in" style="--i:0">
         ${photos.length
@@ -128,7 +161,6 @@ export function showProfile(m, idx, list, origin, holdSec) {
           <span class="pf-dots">${photos.map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('')}</span></div>` : ''}
       </div>
       <div class="pf-id">
-        <div class="pf-kicker pf-in" style="--i:1">CURRENTLY SERVING</div>
         <h1 class="pf-name"></h1>
         <div class="pf-rule"></div>
         <div class="pf-flagrow pf-in" style="--i:2">
@@ -183,9 +215,12 @@ export function showProfile(m, idx, list, origin, holdSec) {
         ${list.map((_, i) => `<i class="${i < idx ? 'done' : i === idx ? 'cur' : ''}">${i === idx ? '<b></b>' : ''}</i>`).join('')}
       </div>
     </div>
-  `;
+  `);
 
   panel.classList.remove('pr');
+  panel.classList.toggle('serving', !m.returnDate && !m.newlyCalled);
+  panel.classList.toggle('called', !!m.newlyCalled);
+  panel.classList.toggle('returned', !!m.returnDate);
   panel.classList.remove('leaving', 'shown');
   void panel.offsetWidth;                       // restart the entrance transitions
   panel.classList.add('shown');
