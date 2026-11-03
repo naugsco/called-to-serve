@@ -1,4 +1,4 @@
-import { decode, esc, getPanel, setProfileContent, SILHOUETTE, url } from './profile.js';
+import { decode, esc, getPanel, rosterProgress, animateRosterProgress, setProfileContent, SILHOUETTE, url } from './profile.js';
 import { koreanOrigin, membershipSnapshot } from './unit-stats.js';
 import { fetchWeather } from './weather.js';
 
@@ -9,8 +9,9 @@ export function hideUnitDetails() {
   details = null;
 }
 
-export function showLeader(leader, building, area, holdSec) {
+export function showLeader(leader, group, building, area, holdSec) {
   const panel = getPanel();
+  const index = group.indexOf(leader);
   const fields = [
     ['Birthplace', leader.birthplace], ['Favorite scripture', leader.scripture],
     ['Hobbies', leader.hobbies], ['Family', leader.family], ['Favorite hymn', leader.hymn],
@@ -32,12 +33,15 @@ export function showLeader(leader, building, area, holdSec) {
     <div class="pf-blocks leader-fields pf-in" style="--i:4"><div class="leader-grid">
       ${fields.map(([label, answer]) =>
         `<div><div class="pf-label">${label}</div><p>${esc(answer)}</p></div>`).join('')}
-    </div></div>`);
+    </div></div>
+    ${rosterProgress(index, group.length, group[index + 1])}
+  `);
 
   panel.classList.remove('pr', 'serving', 'returned', 'called', 'leaving', 'shown');
   void panel.offsetWidth;
   panel.classList.add('shown');
   decode(panel.querySelector('.pf-name'), leader.name);
+  animateRosterProgress(holdSec);
 
   const block = panel.querySelector('.leader-fields');
   const overflow = block.scrollHeight - block.clientHeight;

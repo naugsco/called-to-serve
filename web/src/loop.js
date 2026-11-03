@@ -90,8 +90,8 @@ export async function runLoop({ missionaries, origin, prospects = [], leaders = 
     state.phase = 'open';
     await open();
     const selected = leaders[Math.max(0, startAt ?? 0)];
-    const tourLeaders = leaderOnly && selected ? orderedLeaders.slice(orderedLeaders.indexOf(selected)) : orderedLeaders;
-    await stakeTour(leaderOnly ? [] : prospects, tourLeaders, freeze);
+    const leaderStart = leaderOnly && selected ? orderedLeaders.indexOf(selected) : 0;
+    await stakeTour(leaderOnly ? [] : prospects, orderedLeaders, freeze, leaderStart);
     first = null;
   }
 
@@ -195,7 +195,7 @@ const kmBetween = (a, b) => {
 };
 
 // World view → whole stake → each prospective missionary's meetinghouse → back out.
-async function stakeTour(prospects, leaders, freeze = false) {
+async function stakeTour(prospects, leaders, freeze = false, leaderStart = 0) {
   const S = state.stake, g = state.globe;
   state.phase = 'stake';
   closeProfile();
@@ -240,7 +240,7 @@ async function stakeTour(prospects, leaders, freeze = false) {
   }
 
   S.leaderView = true;
-  for (const leader of leaders) {
+  for (const leader of leaders.slice(leaderStart)) {
     if (skipGroup(leader.group)) continue;
     leaveProfile(); stopProspect(); hideUnitDetails();
     const building = S.data.buildings.find(b => b.id === leader.buildingId);
@@ -253,7 +253,8 @@ async function stakeTour(prospects, leaders, freeze = false) {
     openProfile();
     const sphere = ring ? geoArea({ type: 'Polygon', coordinates: [ring] }) : 0;
     const area = Math.min(sphere, 4 * Math.PI - sphere) * 6371 ** 2;
-    showLeader(leader, building, area, T.stakeHold);
+    const group = leaders.filter(person => person.group === leader.group);
+    showLeader(leader, group, building, area, T.stakeHold);
     await hold(T.stakeHold, leader.group, freeze);
   }
   hideUnitDetails();

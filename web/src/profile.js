@@ -140,6 +140,26 @@ function scheduleBioScroll(holdSec) {
   }, T.profileBioDelay * 1000);
 }
 
+export function rosterProgress(idx, total, next) {
+  return `
+    <div class="pf-roster pf-in" style="--i:8">
+      <div class="pf-roster-top">
+        <span class="pos"><b>${String(idx + 1).padStart(2, '0')}</b> / ${String(total).padStart(2, '0')}</span>
+        <span class="next">${next ? `NEXT ▸ ${esc(next.name.toUpperCase())}` : ''}</span>
+      </div>
+      <div class="pf-segs">
+        ${Array.from({ length: total }, (_, i) => `<i class="${i < idx ? 'done' : i === idx ? 'cur' : ''}">${i === idx ? '<b></b>' : ''}</i>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+export function animateRosterProgress(holdSec) {
+  const fill = panel.querySelector('.pf-segs .cur b');
+  fill.style.setProperty('--hold', `${holdSec}s`);
+  requestAnimationFrame(() => requestAnimationFrame(() => fill.classList.add('run')));
+}
+
 export function showProfile(m, idx, list, origin, holdSec) {
   clearTimeout(photoTimer);
   clearTimeout(bioTimer);
@@ -147,6 +167,7 @@ export function showProfile(m, idx, list, origin, holdSec) {
   const km = distanceKm(origin, { lat: m.missionLat, lng: m.missionLng });
   const sv = serving(m);
   const category = missionaryCategory(m);
+  const group = list.filter(person => missionaryCategory(person) === category);
   const missing = '<div class="v none">Not submitted yet</div>';
   const next = list[(idx + 1) % list.length];
 
@@ -206,15 +227,7 @@ export function showProfile(m, idx, list, origin, holdSec) {
         ${m.homeWard ? `<div class="v">${esc(m.homeWard)}</div>` : missing}</div>
     </div>
 
-    <div class="pf-roster pf-in" style="--i:8">
-      <div class="pf-roster-top">
-        <span class="pos"><b>${String(idx + 1).padStart(2, '0')}</b> / ${String(list.length).padStart(2, '0')}</span>
-        <span class="next">NEXT ▸ ${esc(next.name.toUpperCase())}</span>
-      </div>
-      <div class="pf-segs">
-        ${list.map((_, i) => `<i class="${i < idx ? 'done' : i === idx ? 'cur' : ''}">${i === idx ? '<b></b>' : ''}</i>`).join('')}
-      </div>
-    </div>
+    ${rosterProgress(group.indexOf(m), group.length, next)}
   `);
 
   panel.classList.remove('pr');
@@ -227,10 +240,7 @@ export function showProfile(m, idx, list, origin, holdSec) {
   // Non-breaking hyphen so "Jin-Woo" never splits across lines.
   decode(panel.querySelector('.pf-name'), m.name.replace(/-/g, '‑'), 650, 120);
 
-  // The current roster segment fills over the hold — position + time in one cue.
-  const fill = panel.querySelector('.pf-segs .cur b');
-  fill.style.setProperty('--hold', `${holdSec}s`);
-  requestAnimationFrame(() => requestAnimationFrame(() => fill.classList.add('run')));
+  animateRosterProgress(holdSec);
 
   fetchWeather(m.missionLat, m.missionLng).then(wx => {
     const v = panel.querySelector('.pf-wx');

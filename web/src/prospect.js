@@ -4,7 +4,7 @@
 //
 // loop.js drives it: openProfile() → showProspect(...) per person → leaveProfile().
 
-import { getPanel, setProfileContent, decode, esc, url, SILHOUETTE } from './profile.js';
+import { getPanel, rosterProgress, animateRosterProgress, setProfileContent, decode, esc, url, SILHOUETTE } from './profile.js';
 import { T } from './timings.js';
 
 let scrollTimers = [];
@@ -82,15 +82,7 @@ export function showProspect(p, idx, list, building, holdSec) {
       </div>
     </div>
 
-    <div class="pf-roster pf-in" style="--i:8">
-      <div class="pf-roster-top">
-        <span class="pos"><b>${String(idx + 1).padStart(2, '0')}</b> / ${String(list.length).padStart(2, '0')}</span>
-        <span class="next">${list.length > 1 ? `NEXT ▸ ${esc(next.name.toUpperCase())}` : ''}</span>
-      </div>
-      <div class="pf-segs">
-        ${list.map((_, i) => `<i class="${i < idx ? 'done' : i === idx ? 'cur' : ''}">${i === idx ? '<b></b>' : ''}</i>`).join('')}
-      </div>
-    </div>
+    ${rosterProgress(idx, list.length, list.length > 1 ? next : null)}
   `);
 
   panel.classList.add('pr');
@@ -99,9 +91,7 @@ export function showProspect(p, idx, list, building, holdSec) {
   panel.classList.add('shown');
   decode(panel.querySelector('.pf-name'), p.name.replace(/-/g, '‑'), 650, 120);
 
-  const fill = panel.querySelector('.pf-segs .cur b');
-  fill.style.setProperty('--hold', `${holdSec}s`);
-  requestAnimationFrame(() => requestAnimationFrame(() => fill.classList.add('run')));
+  animateRosterProgress(holdSec);
 
   panel.querySelectorAll('.pr-win').forEach(w => scheduleScroll(panel, w, holdSec));
 
