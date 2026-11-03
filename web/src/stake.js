@@ -18,9 +18,10 @@ const get = name => fetch(`${base}stake/${name}`, { cache: 'no-cache' }).then(r 
 });
 
 export async function loadStake() {
-  const [data, land] = await Promise.all([get('stake.json'), get('land.json')]);
+  const [data, land, water] = await Promise.all([get('stake.json'), get('land.json'), get('water.json')]);
   state.stake.data = data;
   state.stake.land = land;
+  state.stake.water = water;
 }
 
 // Fetch + prepare one building's street map. Safe to call repeatedly.
@@ -97,6 +98,23 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
   const f = fades(zoom);
   const o = s.overlay;
   const D = Math.PI / 180;
+
+  const waterA = ss(zoom, 26, 52);
+  if (waterA > 0.01) {
+    ctx.save();
+    ctx.beginPath();
+    for (const ring of s.water) ringPath(ctx, projection, ring);
+    ctx.clip('evenodd');
+    ctx.beginPath();
+    for (const ring of s.water.slice(1)) ringPath(ctx, projection, ring);
+    // The land casts a soft tint into the water. Clipping keeps the tint
+    // off the mainland and islands.
+    ctx.fillStyle = C.ink;
+    ctx.shadowColor = `rgba(${C.inkRgb}, ${0.27 * waterA})`;
+    ctx.shadowBlur = 12 * unit * ctx.getTransform().a;
+    ctx.fill('evenodd');
+    ctx.restore();
+  }
 
   // --- regional coastline (hands over to the street-level coast when close) ---
   const coastA = f.regional * (1 - f.local);

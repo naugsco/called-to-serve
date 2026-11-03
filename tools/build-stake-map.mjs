@@ -2,6 +2,7 @@
 //
 //   land.json            regional coastline (Natural Earth 10m via world-atlas),
 //                        cut to the stake's bounding box
+//   water.json           regional water mask from the same coastline
 //   local-<building>.json  main roads + coast + rivers around each meetinghouse
 //                        (OpenStreetMap via Overpass), simplified
 //
@@ -12,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feature } from 'topojson-client';
+import { geoIdentity, geoStream } from 'd3-geo';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'web/public/stake');
@@ -78,6 +80,26 @@ async function buildLand() {
   }
   fs.writeFileSync(path.join(outDir, 'land.json'), JSON.stringify(lines));
   console.log(`land.json: ${lines.length} lines, ${lines.reduce((n, l) => n + l.length, 0)} pts`);
+
+  // Keep the mask edges beyond the stake camera's view as the tint fades in.
+  const extent = [[-130, 45], [-116, 55]];
+  const [[west, south], [east, north]] = extent;
+  // The outer ring paints the whole region. Land rings cut holes in the
+  // canvas's even-odd fill, including islands and inland water.
+  const water = [[[west, south], [east, south], [east, north], [west, north]]];
+  let ring;
+  geoStream(land, geoIdentity().clipExtent(extent).stream({
+    polygonStart() {},
+    polygonEnd() {},
+    lineStart() { ring = []; },
+    point(x, y) { ring.push([x, y]); },
+    lineEnd() {
+      if (ring.length < 3) return;
+      const points = simplify([...ring, ring[0]], 0.0007);
+      if (points.length >= 4) water.push(points.slice(0, -1).map(([x, y]) => [r(x, 4), r(y, 4)]));
+    },
+  }));
+  fs.writeFileSync(path.join(outDir, 'water.json'), JSON.stringify(water));
 }
 
 const OVERPASS = 'https://overpass-api.de/api/interpreter';

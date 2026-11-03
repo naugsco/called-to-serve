@@ -30,6 +30,7 @@ export const state = {
   stake: {
     data: null,            // stake.json: boundary, territories, buildings, units
     land: null,            // regional coastline lines
+    water: null,           // regional water mask rings
     local: new Map(),      // buildingId → { roads, coast, rivers } once loaded
     overlay: 0,            // 0..1 fade of boundary / wards / building pins
     leaderView: false,
