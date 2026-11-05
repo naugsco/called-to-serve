@@ -9,5 +9,6 @@
   "missionCity": "Paris",
   "flag": "flags/fr.svg",
   "photos": [],
-  "newlyCalled": true
+  "newlyCalled": true,
+  "fact": "The banks of the Seine in Paris have been a UNESCO World Heritage Site since 1991."
 }

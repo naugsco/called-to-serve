@@ -37,6 +37,22 @@
     "canada-winnipeg-mission":       "Coldest big city in North America; The Forks have been a trading site for 6,000 years.",
 
     "washington-vancouver-mission":  "Across the Columbia River from Portland — older than its more famous BC namesake.",
-    "mexico-chihuahua-mission":      "High desert mission in the state that's home to the Copper Canyon — deeper than the Grand."
+    "mexico-chihuahua-mission":      "High desert mission in the state that's home to the Copper Canyon — deeper than the Grand.",
+    "arizona-phoenix-west-mission": "The Phoenix area preserves ancient desert canals built by the people archaeologists call the Hohokam.",
+    "brazil-sorocaba-mission": "Sorocaba celebrates its historic mule-driving routes each May during the Semana do Tropeiro.",
+    "france-paris-north-mission": "The banks of the Seine in Paris have been a UNESCO World Heritage Site since 1991.",
+    "guatemala-coban-belize-mission": "Cobán is home to orchid conservation and an international orchid exhibition held each November.",
+    "hawaii-laie-mission": "Laie has a temple visitors’ center where the public can explore the gardens and learn about Jesus Christ.",
+    "peru-cusco-mission": "Cusco’s historic streets still preserve the stonework of the former Inca capital.",
+    "france-paris-mission": "The banks of the Seine in Paris have been a UNESCO World Heritage Site since 1991."
+  },
+  "sources": {
+    "arizona-phoenix-west-mission": "https://www.phoenix.gov/administration/departments/arts/archaeology.html",
+    "brazil-sorocaba-mission": "https://noticias.sorocaba.sp.gov.br/prefeitura-de-sorocaba-realiza-reuniao-regional-para-organizacao-da-13a-tropeada-paulista-e-59a-semana-do-tropeiro/",
+    "france-paris-north-mission": "https://whc.unesco.org/en/list/600/",
+    "guatemala-coban-belize-mission": "https://www.aaogt.com/index.html",
+    "hawaii-laie-mission": "https://www.churchofjesuschrist.org/locations/laie-hawaii-temple-visitors-center?lang=eng",
+    "peru-cusco-mission": "https://whc.unesco.org/en/list/273/",
+    "france-paris-mission": "https://whc.unesco.org/en/list/600/"
   }
 }
