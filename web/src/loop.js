@@ -13,6 +13,7 @@
 //     so the loop seam is invisible.
 
 import gsap from 'gsap';
+import { CustomEase } from 'gsap/CustomEase';
 import { geoArea } from 'd3-geo';
 import { hideUnitDetails, showLeader } from './leader.js';
 import { state, ensureMissionEntry } from './state.js';
@@ -21,6 +22,9 @@ import { spawnParticleToMission } from './globe.js';
 import { openProfile, closeProfile, leaveProfile, showProfile, missionaryCategory } from './profile.js';
 import { showProspect, stopProspect } from './prospect.js';
 import { ensureLocal } from './stake.js';
+
+gsap.registerPlugin(CustomEase);
+const launchEase = CustomEase.create('launch-camera', '0.42,0,0.58,1');
 
 const wait = (s) => new Promise(r => setTimeout(r, s * 1000));
 
@@ -134,13 +138,25 @@ async function intro() {
   state.globe.centerX = 0.5;
   state.globe.rotateLat = 0;
   clearMissionHighlights();
+  state.launchSignal = null;
   await wait(T.introSpin);
 }
 
 async function launch(list) {
-  await centerOn(VANCOUVER.lng, VANCOUVER.lat, T.centerVancouver);
+  await centerOn(VANCOUVER.lng, VANCOUVER.lat, T.centerVancouver, launchEase);
+  for (let blip = 1; blip <= 3; blip++) {
+    const now = performance.now();
+    state.launchSignal = { blip, blipAt: now };
+    if (blip < 3) await wait(T.launchBlipInterval);
+  }
+  // The third blip starts the staggered departures.
   list.forEach((m, i) => setTimeout(() => spawnParticleToMission(m), i * T.launchStagger * 1000));
-  await wait(list.length * T.launchStagger + 0.1);
+  // Hold on the departure point, then turn to reveal the destinations.
+  await Promise.all([
+    wait(T.launchHold).then(() =>
+      centerOn(VIEW.launchCenter.lng, VIEW.launchCenter.lat, T.launchTurn, launchEase)),
+    wait(list.length * T.launchStagger + 0.1),
+  ]);
   // Wait for the LAST dot to land — globe.js drops each particle on arrival.
   while (state.particles.length) await wait(0.1);
   await wait(T.afterLanding);

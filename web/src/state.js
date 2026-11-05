@@ -39,6 +39,7 @@ export const state = {
   },
 
   particles: [],         // { interp, missionSlug, startedAt, duration, dotCount }
+  launchSignal: null,    // { blip, blipAt } — Vancouver launch countdown
 };
 
 export function ensureMissionEntry(slug) {

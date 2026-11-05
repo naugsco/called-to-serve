@@ -6,7 +6,7 @@ import { geoOrthographic, geoPath, geoGraticule10, geoInterpolate } from 'd3-geo
 import { feature } from 'topojson-client';
 import world from 'world-atlas/countries-110m.json';
 import { state, ensureMissionEntry } from './state.js';
-import { VIEW, SPEED, VANCOUVER } from './timings.js';
+import { T, VIEW, SPEED, VANCOUVER } from './timings.js';
 import { drawStake, fades } from './stake.js';
 
 const land = feature(world, world.objects.countries);
@@ -147,7 +147,36 @@ function draw(now) {
     drawMissions(now, unit);
     ctx.restore();
   }
-  if (ov < 0.01) drawParticles(now, unit);
+  if (ov < 0.01) {
+    drawLaunchSignal(now, unit);
+    drawParticles(now, unit);
+  }
+}
+
+function drawLaunchSignal(now, unit) {
+  const signal = state.launchSignal;
+  if (!signal) return;
+  const blipT = (now - signal.blipAt) / (T.launchBlip * 1000);
+  ctx.save();
+  if (blipT >= 0 && blipT < 1 && isOnFront(VANCOUVER.lng, VANCOUVER.lat)) {
+    const [x, y] = projection([VANCOUVER.lng, VANCOUVER.lat]);
+    const strength = Math.sin(Math.PI * blipT);
+    ctx.globalAlpha = strength;
+    ctx.fillStyle = C.accent;
+    ctx.shadowColor = C.accent;
+    ctx.shadowBlur = 18 * unit;
+    ctx.beginPath();
+    ctx.arc(x, y, (4 + strength * 3) * unit, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = C.accent;
+    ctx.lineWidth = 2 * unit;
+    ctx.globalAlpha = 1 - blipT;
+    ctx.beginPath();
+    ctx.arc(x, y, (8 + blipT * 24) * unit, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+  if (signal.blip === 3 && blipT >= 1) state.launchSignal = null;
 }
 
 let worldFade = 1;

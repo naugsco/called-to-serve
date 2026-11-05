@@ -7,9 +7,13 @@ const sec = (s) => s / FAST;
 
 export const T = {
   introSpin: sec(6),
-  centerVancouver: sec(2),
-  launchStagger: sec(0.22),     // between each missionary's dot leaving Vancouver
-  afterLanding: sec(1.2),       // let the last landing ring finish
+  centerVancouver: sec(4),
+  launchBlip: sec(0.6),        // duration of each Vancouver blip
+  launchBlipInterval: sec(0.9), // time between the three blips
+  launchHold: sec(2),          // stay on Vancouver as the dots begin departing
+  launchStagger: sec(0.4),     // individual departures, starting on the third blip
+  launchTurn: sec(7),          // reveal destinations while the dots fly
+  afterLanding: sec(1.8),       // let the last landing ring finish
   profileOpen: sec(2.2),        // globe slides left as the panel opens
   profileHold: sec(14),         // time on each missionary
   profileTurn: sec(1.4),        // globe turn to the next mission
@@ -30,11 +34,12 @@ export const T = {
 
 export const SPEED = {
   baseOmega: 12 * FAST,     // deg / sec (globe rotation baseline)
-  particleSec: 3.0 / FAST,  // particle traversal time on the globe
+  particleSec: 8.5 / FAST,  // particle traversal time on the globe
 };
 
 export const VIEW = {
   globeScaleBase: 0.42,   // base scale as fraction of min(w,h) — fits with margin
+  launchCenter: { lng: -70, lat: 25 }, // frames Hawaii, South America and western Europe
   profileCenterX: 0.26,   // viewport-x fraction of the globe while the profile panel is open
   profileScale: 0.95,     // globe scale while the profile panel is open
 };
