@@ -91,6 +91,17 @@ function ringPath(ctx, projection, ring) {
 
 function setLetterSpacing(ctx, px) { if ('letterSpacing' in ctx) ctx.letterSpacing = px + 'px'; }
 
+// Opaque backing keeps borders and coastlines from crossing through map text.
+function labelBackground(ctx, C, x, y, width, height, unit) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, 4 * unit);
+  ctx.fillStyle = C.bg;
+  ctx.fill();
+  ctx.strokeStyle = `rgba(${C.inkRgb}, 0.18)`;
+  ctx.lineWidth = 0.8 * unit;
+  ctx.stroke();
+}
+
 // ctx is already in CSS-pixel space. `g` is state.globe; r is the globe radius in px.
 export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy }) {
   const s = state.stake;
@@ -160,6 +171,12 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
   if (o <= 0.01 || f.regional < 0.01) return;
   const A = o * f.regional;
   const activeUnits = new Set(s.data.units.filter(u => u.building === s.activeBuilding).map(u => u.id));
+  const overviewIndex = s.data.units.findIndex(u => u.id === s.overviewUnit);
+  const overviewUnit = s.data.units[overviewIndex];
+  // Language and YSA units cover the stake rather than a separate ward territory.
+  const overviewRing = overviewUnit?.territory === 'stake'
+    ? s.data.boundary : s.data.territories[overviewUnit?.territory];
+  const highlightA = A * s.overviewHighlight;
 
   // --- ward territories ---
   for (const [id, ring] of Object.entries(s.data.territories)) {
@@ -183,6 +200,20 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
   ctx.stroke();
   ctx.restore();
 
+  // Draw the featured territory last so shared borders stay clearly visible.
+  if (overviewRing && highlightA > 0.01) {
+    ctx.save();
+    ctx.beginPath();
+    ringPath(ctx, projection, overviewRing);
+    ctx.fillStyle = `rgba(${C.goldRgb}, ${0.24 * highlightA})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(${C.accentRgb}, ${highlightA})`;
+    ctx.lineWidth = 3 * unit;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // --- stake title (only while the whole stake is in view) ---
   const titleA = A * (1 - ss(zoom, 90, 220));
   if (titleA > 0.01) {
@@ -198,6 +229,23 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
       setLetterSpacing(ctx, 3 * unit);
       ctx.fillStyle = `rgba(${C.inkRgb}, ${0.55 * titleA})`;
       ctx.fillText(`${s.data.units.length} UNITS · ${s.data.buildings.length} MEETINGHOUSES`, p[0], p[1] + 20 * unit);
+      if (overviewUnit) {
+        ctx.globalAlpha = titleA * s.overviewHighlight;
+        ctx.font = `600 ${14 * unit}px 'JetBrains Mono', ui-monospace, monospace`;
+        setLetterSpacing(ctx, 1.2 * unit);
+        const name = overviewUnit.name.toUpperCase();
+        const nameWidth = ctx.measureText(name).width;
+        const detail = `${String(overviewIndex + 1).padStart(2, '0')} / ${s.data.units.length} · ${overviewUnit.territory ? 'UNIT BOUNDARY' : 'MEETINGHOUSE HIGHLIGHTED'}`;
+        ctx.font = `${10 * unit}px 'JetBrains Mono', ui-monospace, monospace`;
+        const width = Math.max(nameWidth, ctx.measureText(detail).width) + 24 * unit;
+        labelBackground(ctx, C, p[0] - width / 2, p[1] + 36 * unit, width, 50 * unit, unit);
+        ctx.fillStyle = C.ink;
+        ctx.font = `600 ${14 * unit}px 'JetBrains Mono', ui-monospace, monospace`;
+        ctx.fillText(name, p[0], p[1] + 56 * unit);
+        ctx.font = `${10 * unit}px 'JetBrains Mono', ui-monospace, monospace`;
+        ctx.fillStyle = C.accent;
+        ctx.fillText(detail, p[0], p[1] + 74 * unit);
+      }
       ctx.restore();
     }
   }
@@ -207,7 +255,10 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
     const p = projection([b.lng, b.lat]);
     if (!p) continue;
     const isActive = b.id === s.activeBuilding;
-    if (isActive) {
+    const inOverview = b.id === overviewUnit?.building;
+    if (isActive || inOverview) {
+      ctx.save();
+      if (inOverview) ctx.globalAlpha = s.overviewHighlight;
       const pulse = 0.5 + 0.5 * Math.sin(now / 380);
       const rr = (11 + pulse * 3) * unit * (1 + 0.6 * f.local);
       const grad = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], rr * 2.6);
@@ -219,7 +270,9 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
       ctx.beginPath(); ctx.arc(p[0], p[1], rr, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = C.gold;
       ctx.beginPath(); ctx.arc(p[0], p[1], 3.4 * unit, 0, Math.PI * 2); ctx.fill();
-    } else {
+      ctx.restore();
+    }
+    if (!isActive) {
       // Neighbouring meetinghouses recede as the camera closes in on one.
       ctx.globalAlpha = 1 - f.local;
       ctx.strokeStyle = `rgba(${C.accentRgb}, ${0.9 * A})`; ctx.lineWidth = 1.4 * unit;
@@ -244,6 +297,17 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
       ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(ax - (east ? 3 : -3) * unit, ay); ctx.stroke();
     }
     ctx.textAlign = east ? 'left' : 'right';
+    ctx.font = `600 ${(isActive ? 15 : 12) * unit}px 'JetBrains Mono', ui-monospace, monospace`;
+    setLetterSpacing(ctx, 2.4 * unit);
+    const nameWidth = ctx.measureText(b.name.toUpperCase()).width;
+    let width = nameWidth;
+    if (isActive) {
+      ctx.font = `${11.5 * unit}px 'JetBrains Mono', ui-monospace, monospace`;
+      setLetterSpacing(ctx, 1.2 * unit);
+      width = Math.max(width, ctx.measureText(b.address).width);
+    }
+    labelBackground(ctx, C, ax - (east ? 0 : width) - 7 * unit, ay - (isActive ? 14 : 12) * unit,
+      width + 14 * unit, (isActive ? 44 : 23) * unit, unit);
     ctx.fillStyle = isActive ? C.ink : `rgba(${C.inkRgb}, 0.85)`;
     ctx.font = `600 ${(isActive ? 15 : 12) * unit}px 'JetBrains Mono', ui-monospace, monospace`;
     setLetterSpacing(ctx, 2.4 * unit);

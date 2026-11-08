@@ -217,6 +217,9 @@ async function stakeTour(prospects, leaders, freeze = false, leaderStart = 0) {
   closeProfile();
   state.missions.activeSlug = null;
   S.activeBuilding = null;
+  S.activeUnit = null;
+  S.overviewUnit = null;
+  S.overviewHighlight = 0;
 
   // 1. Dive from the globe into the stake.
   await Promise.all([
@@ -224,6 +227,13 @@ async function stakeTour(prospects, leaders, freeze = false, leaderStart = 0) {
     tweenTo(S, { overlay: 1, duration: T.stakeZoomIn * 0.45, delay: T.stakeZoomIn * 0.55 }),
   ]);
   await wait(T.stakeOverview);
+  for (const unit of S.data.units) {
+    S.overviewUnit = unit.id;
+    await tweenTo(S, { overviewHighlight: 1, duration: T.stakeUnitFade, ease: 'sine.inOut' });
+    await wait(T.stakeUnitHold);
+    await tweenTo(S, { overviewHighlight: 0, duration: T.stakeUnitFade, ease: 'sine.inOut' });
+  }
+  S.overviewUnit = null;
 
   // 2. One card per person, flying to the building where their ward meets.
   let here = STAKE_VIEW.center, atOverview = true;

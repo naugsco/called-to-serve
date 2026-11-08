@@ -33,6 +33,8 @@ export const state = {
     water: null,           // regional water mask rings
     local: new Map(),      // buildingId → { roads, coast, rivers } once loaded
     overlay: 0,            // 0..1 fade of boundary / wards / building pins
+    overviewUnit: null,    // unitId featured during the whole-stake overview
+    overviewHighlight: 0, // 0..1 fade of its territory, pin, and name
     leaderView: false,
     activeUnit: null,
     activeBuilding: null,  // buildingId currently featured

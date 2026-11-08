@@ -26,7 +26,9 @@ export const T = {
 
   // Stake tour (prospective missionaries)
   stakeZoomIn: sec(5),          // world → whole-stake view
-  stakeOverview: sec(5),        // rest on the stake outline, wards and buildings
+  stakeOverview: sec(2),        // settle on the whole stake before featuring units
+  stakeUnitHold: sec(1.8),      // each unit rests between two 0.35-second fades
+  stakeUnitFade: sec(0.35),     // 2.5 seconds per unit, 29.5 seconds total for 11 units
   stakeFly: sec(3.6),           // stake/building → next building
   stakeHold: sec(14),           // time on each prospective missionary
   stakeZoomOut: sec(4.5),       // last building → back out to the globe
