@@ -112,12 +112,17 @@ export function drawStake(ctx, projection, C, { unit, zoom, now, w, h, r, cx, cy
 
   const waterA = ss(zoom, 26, 52);
   if (waterA > 0.01) {
+    const [extent, ...landRings] = s.water;
     ctx.save();
     ctx.beginPath();
-    for (const ring of s.water) ringPath(ctx, projection, ring);
+    // Projected land edges can extend beyond the extent's straight edges.
+    // Clip to the extent first so those slivers never receive the land fill.
+    ringPath(ctx, projection, extent);
+    ctx.clip();
+    for (const ring of landRings) ringPath(ctx, projection, ring);
     ctx.clip('evenodd');
     ctx.beginPath();
-    for (const ring of s.water.slice(1)) ringPath(ctx, projection, ring);
+    for (const ring of landRings) ringPath(ctx, projection, ring);
     // The land casts a soft tint into the water. Clipping keeps the tint
     // off the mainland and islands.
     ctx.fillStyle = C.ink;

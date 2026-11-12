@@ -26,7 +26,7 @@ export const missionaryCategory = m => m.newlyCalled ? 'called' : m.returnDate ?
 let panel = null;
 let tabs = null;
 let photoTimer = null;
-let bioTimer = null;
+let bioObserver = null;
 
 export function mountProfile() {
   panel = document.createElement('section');
@@ -57,14 +57,14 @@ export function setProfileContent(category, html) {
 export function openProfile()  { panel.classList.add('open'); }
 export function closeProfile() {
   clearTimeout(photoTimer);
-  clearTimeout(bioTimer);
+  stopBioScroll();
   panel.classList.add('leaving');
   panel.classList.remove('open');
 }
 // Fade the current content out before the next missionary replaces it.
 export function leaveProfile() {
   clearTimeout(photoTimer);
-  clearTimeout(bioTimer);
+  stopBioScroll();
   panel.classList.add('leaving');
 }
 
@@ -115,29 +115,46 @@ function serving(m) {
   return { label, sub: `Month ${elapsed} of ${total}`, frac: elapsed / total };
 }
 
-// Bio too long for its 4-line window → scroll it once, slowly, so the last
-// line is reached shortly before the hold ends. Measured AFTER the entrance
-// transitions and web-font load, so the overflow height is final.
+function stopBioScroll() {
+  bioObserver?.disconnect();
+  bioObserver = null;
+}
+
+// Scroll to the last line before the hold ends. A font, weather update, or
+// viewport change can reflow the text or resize the visible window mid-card.
 const BIO_SCROLL_LINES_PER_SEC = 0.65;   // reading pace, independent of screen size
 function scheduleBioScroll(holdSec) {
   const wrap = panel.querySelector('.pf-bio-wrap');
   const text = wrap.querySelector('.pf-bio');
-  bioTimer = setTimeout(async () => {
-    await document.fonts.ready;
-    if (!wrap.isConnected) return;
-    const overflow = text.scrollHeight - wrap.clientHeight;
-    if (overflow <= 1) return;
-    wrap.classList.add('overflows');
-    // Time left after the start delay, keeping T.profileBioEndPause at the end.
-    const available = holdSec - T.profileBioDelay - T.profileBioEndPause;
-    const pxPerSec = BIO_SCROLL_LINES_PER_SEC * parseFloat(getComputedStyle(text).lineHeight);
-    const duration = Math.max(1, Math.min(overflow / pxPerSec, available));
-    const anim = text.animate(
-      [{ transform: 'translateY(0)' }, { transform: `translateY(${-overflow}px)` }],
-      { duration: duration * 1000, easing: 'ease-in-out', fill: 'forwards' },
+  const shownAt = performance.now();
+  const start = shownAt + T.profileBioDelay * 1000;
+  const end = shownAt + (holdSec - T.profileBioEndPause) * 1000;
+  let distance = 0;
+  let animation;
+
+  bioObserver = new ResizeObserver(() => {
+    const overflow = Math.max(0, text.getBoundingClientRect().height - wrap.getBoundingClientRect().height);
+    if (overflow === distance) return;
+    distance = overflow;
+    const style = getComputedStyle(text);
+    const from = style.transform;
+    const pxPerSec = BIO_SCROLL_LINES_PER_SEC * parseFloat(style.lineHeight);
+    animation?.cancel();
+    wrap.classList.toggle('overflows', overflow > 0);
+    wrap.classList.remove('at-end');
+    if (!overflow) return;
+
+    const now = performance.now();
+    const delay = Math.max(0, start - now);
+    const duration = Math.max(0, Math.min(overflow / pxPerSec * 1000, end - now - delay));
+    animation = text.animate(
+      [{ transform: from }, { transform: `translateY(${-overflow}px)` }],
+      { delay, duration, easing: 'ease-in-out', fill: 'forwards' },
     );
-    anim.onfinish = () => wrap.classList.add('at-end');
-  }, T.profileBioDelay * 1000);
+    animation.onfinish = () => wrap.classList.add('at-end');
+  });
+  bioObserver.observe(wrap);
+  bioObserver.observe(text);
 }
 
 export function rosterProgress(idx, total, next) {
@@ -162,7 +179,7 @@ export function animateRosterProgress(holdSec) {
 
 export function showProfile(m, idx, list, origin, holdSec) {
   clearTimeout(photoTimer);
-  clearTimeout(bioTimer);
+  stopBioScroll();
   const photos = m.photos?.length ? m.photos : [];
   const km = distanceKm(origin, { lat: m.missionLat, lng: m.missionLng });
   const category = missionaryCategory(m);

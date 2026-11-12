@@ -137,11 +137,12 @@ body { font-family: var(--font-sans); }
    smooth on TV GPUs. Only the globe canvas redraws every frame. */
 #profile {
   --profile-padding-x: 2rem;
-  --profile-photo-width: 15rem;
+  --profile-photo-width: 16rem;
+  --profile-bg: var(--bg);
   position: fixed;
   z-index: 3;
-  /* Sized to its content and vertically centred between the HUD bars. */
-  top: 0; bottom: 0;
+  /* Size to the content, with extra clearance above the card for its tabs. */
+  top: 1.5rem; bottom: 0;
   margin: auto 0;
   height: fit-content;
   max-height: calc(100% - 9rem);
@@ -332,27 +333,26 @@ body { font-family: var(--font-sans); }
   overflow: hidden;
 }
 .pf-block.empty p { color: var(--ink-faint); font-style: italic; }
-/* About box: a 4-line window. A longer bio (some are a full paragraph plus a
-   scripture) auto-scrolls inside it — profile.js animates the <p>'s transform,
-   which runs on the compositor, so it costs nothing per frame on the TV. */
+/* Show up to six lines and let the window shrink with the card. */
 .pf-bio-wrap {
   position: relative;
   margin-top: 0.5rem;
   min-height: 0;
   font-size: 1.625rem;
   line-height: 1.45;
-  max-height: calc(4 * 1.45em);
+  max-height: calc(6 * 1.45em);
   overflow: hidden;
 }
-.pf-bio-wrap p.pf-bio { margin: 0; will-change: transform; }
+.pf-bio-wrap p.pf-bio { margin: 0; overflow-wrap: anywhere; will-change: transform; }
 /* "More below" cue while text is hidden; fades once the scroll reaches the end. */
 .pf-bio-fade {
   position: absolute; left: 0; right: 0; bottom: 0;
   height: 1.6em;
-  background: linear-gradient(rgba(var(--bg-rgb), 0), rgba(var(--bg-rgb), 0.95));
+  background: linear-gradient(transparent, var(--profile-bg));
   opacity: 0;
   transition: opacity 0.6s ease;
 }
+.pf-bio-wrap .pf-bio-fade { height: 0.75em; }
 .pf-bio-wrap.overflows .pf-bio-fade { opacity: 1; }
 .pf-bio-wrap.overflows.at-end .pf-bio-fade { opacity: 0; }
 
@@ -442,7 +442,7 @@ body { font-family: var(--font-sans); }
 /* ---------- Prospective missionary card (prospect.js) ----------
    Same panel as the serving-missionary profile, so it inherits the frame,
    entrance transitions and type scale; only the inner layout differs. */
-#profile.pr .pf-head { grid-template-columns: 13.5rem minmax(0, 1fr); }
+#profile.pr .pf-head { grid-template-columns: 14.5rem minmax(0, 1fr); }
 .pr-meets {
   margin-top: 0.75rem;
   font-family: var(--font-mono);
@@ -482,8 +482,10 @@ body { font-family: var(--font-sans); }
 #profile.serving { --status-color: #82bfe8; }
 #profile.returned { --status-color: #dc9250; }
 #profile:is(.called, .serving, .returned) {
+  --profile-bg: color-mix(in srgb, var(--bg) 87%, var(--status-color));
+  gap: 0.75rem;
   box-shadow: inset 0 0 0 2px var(--status-color);
-  background: color-mix(in srgb, var(--bg) 87%, var(--status-color));
+  background: var(--profile-bg);
 }
 .pf-congratulations {
   position: absolute;
